@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zeiterfassung</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<!-- PapaParse -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<!-- Tabler Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+
+<style>
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface2: #f0efe9;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --text: #1a1918;
+  --text2: #6b6a65;
+  --text3: #a09e99;
+  --accent: #185FA5;
+  --accent-light: #e6f1fb;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111110;
+    --surface: #1c1c1a;
+    --surface2: #242422;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0efe9;
+    --text2: #9a9890;
+    --text3: #5a5955;
+    --accent: #4a8fd4;
+    --accent-light: #0c2233;
+    --shadow: 0 1px 4px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Login Screen */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem;
+  width: 360px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.login-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+.login-card p { color: var(--text2); font-size: 13px; margin-bottom: 2rem; }
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 11px 16px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); cursor: pointer; font-size: 14px; font-weight: 500;
+  color: var(--text); transition: background 0.15s;
+  font-family: inherit;
+}
+.google-btn:hover { background: var(--surface2); }
+.google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* App Layout */
+#app { display: none; height: 100vh; overflow: hidden; }
+.layout { display: flex; height: 100%; }
+
+/* Sidebar */
+.sidebar {
+  width: 230px; min-width: 230px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h1 { font-size: 15px; font-weight: 600; }
+.sidebar-logo p { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.user-info {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+.user-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+}
+.user-avatar-fallback {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-light); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.user-name { font-size: 12px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logout-btn { background: none; border: none; color: var(--text3); cursor: pointer; padding: 4px; border-radius: 6px; }
+.logout-btn:hover { color: var(--text); background: var(--surface2); }
+
+.nav-section {
+  padding: 0.6rem 1rem 0.2rem;
+  font-size: 10px; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 1rem;
+  font-size: 13px; color: var(--text2);
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: left;
+  border-radius: 0; transition: all 0.12s;
+  font-family: inherit;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+.nav-item i { font-size: 16px; flex-shrink: 0; }
+.nav-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.sidebar-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+
+/* Main */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.9rem 1.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.topbar h2 { font-size: 15px; font-weight: 600; }
+.content { flex: 1; overflow-y: auto; padding: 1.5rem; }
+
+/* Components */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text);
+  font-size: 13px; cursor: pointer; font-family: inherit;
+  transition: background 0.12s; font-weight: 500;
+}
+.btn:hover { background: var(--surface2); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { opacity: 0.9; background: var(--accent); }
+.btn.sm { padding: 4px 10px; font-size: 12px; }
+.btn.danger { color: #a32d2d; border-color: #f7c1c1; }
+.btn.danger:hover { background: #fcebeb; }
+.btn i { font-size: 14px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.card-title { font-size: 13px; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
+
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.metric {
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+.metric-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.metric-value { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.metric-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+input, select, textarea {
+  font-family: inherit; font-size: 13px;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 8px 10px;
+  width: 100%; outline: none; transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(24,95,165,0.12);
+}
+textarea { resize: vertical; min-height: 64px; }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6a65' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { margin-bottom: 12px; }
+.form-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.entry-list { display: flex; flex-direction: column; gap: 6px; }
+.entry-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  transition: background 0.12s;
+}
+.entry-item:hover { background: var(--border); }
+.entry-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+.entry-info { flex: 1; min-width: 0; }
+.entry-project { font-size: 11px; color: var(--text2); font-weight: 500; }
+.entry-desc { font-size: 13px; color: var(--text); margin-top: 1px; }
+.entry-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.entry-hours { font-size: 14px; font-weight: 600; flex-shrink: 0; }
+
+.week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day-col {}
+.day-header { font-size: 10px; color: var(--text3); text-align: center; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; }
+.day-date {
+  font-size: 13px; font-weight: 600; text-align: center;
+  margin-bottom: 6px; color: var(--text);
+}
+.day-date.today { color: var(--accent); }
+.day-body {
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 5px;
+  min-height: 80px;
+  border: 1px solid transparent;
+}
+.day-body.today { border-color: var(--accent); }
+.day-seg {
+  border-radius: 4px; padding: 3px 5px;
+  margin-bottom: 3px; font-size: 10px; font-weight: 600;
+  line-height: 1.3;
+}
+.day-total { text-align: center; font-size: 11px; font-weight: 600; color: var(--text2); margin-top: 4px; }
+
+.project-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.project-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.project-name { font-size: 15px; font-weight: 600; flex: 1; }
+
+.budget-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-bottom: 5px; }
+.budget-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.budget-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); }
+
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.month-nav { display: flex; align-items: center; gap: 8px; }
+
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; backdrop-filter: blur(2px);
+}
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem; width: 440px; max-width: 94vw;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+}
+.modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 1.25rem; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; }
+
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+.tab {
+  padding: 8px 16px; font-size: 13px; color: var(--text2);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; background: none;
+  border-top: none; border-left: none; border-right: none;
+  font-family: inherit; font-weight: 500; transition: color 0.12s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 2rem; text-align: center;
+  cursor: pointer; color: var(--text2);
+  font-size: 13px; margin-bottom: 1rem;
+  transition: all 0.15s; display: block;
+}
+.upload-zone:hover { border-color: var(--accent); color: var(--text); background: var(--accent-light); }
+
+.alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 8px; }
+.alert.success { background: #eaf3de; color: #3b6d11; }
+.alert.warning { background: #faeeda; color: #854f0b; }
+.alert.danger { background: #fcebeb; color: #a32d2d; }
+.alert i { flex-shrink: 0; margin-top: 1px; }
+
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text3); font-size: 13px; }
+.empty-state i { font-size: 32px; display: block; margin-bottom: 0.75rem; opacity: 0.5; }
+
+.color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-opt {
+  width: 26px; height: 26px; border-radius: 50%;
+  cursor: pointer; border: 3px solid transparent;
+  transition: border-color 0.12s; outline: 2px solid transparent;
+}
+.color-opt.selected { outline: 2px solid var(--text); outline-offset: 2px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { font-weight: 600; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 200px; color: var(--text3); font-size: 13px;
+}
+.loading i { font-size: 20px; margin-right: 8px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.sync-indicator {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text3);
+}
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #639922; }
+.sync-dot.syncing { background: #ba7517; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .form-row { grid-template-columns: 1fr; }
+  .week-grid { grid-template-columns: repeat(7, 1fr); }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-card">
+    <div style="font-size: 32px; margin-bottom: 12px;">⏱</div>
+    <h1>Zeiterfassung</h1>
+    <p>Für Strategie &amp; Kommunikationsberatung</p>
+    <button class="google-btn" onclick="signInWithGoogle()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Mit Google anmelden
+    </button>
+    <p style="margin-top: 1.25rem; font-size: 11px; color: var(--text3);">Deine Daten sind sicher in deinem Firebase-Konto gespeichert.</p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <h1>Zeiterfassung</h1>
+        <p>Strategie &amp; Kommunikation</p>
+      </div>
+      <div class="user-info">
+        <div id="user-avatar-container"></div>
+        <span class="user-name" id="user-name-display">—</span>
+        <button class="logout-btn" onclick="signOut()" title="Abmelden"><i class="ti ti-logout"></i></button>
+      </div>
+
+      <button class="nav-item active" onclick="showView('log')" id="nav-log">
+        <i class="ti ti-plus-circle"></i><span>Eintrag erfassen</span>
+      </button>
+      <button class="nav-item" onclick="showView('week')" id="nav-week">
+        <i class="ti ti-calendar-week"></i><span>Wochenansicht</span>
+      </button>
+      <button class="nav-item" onclick="showView('month')" id="nav-month">
+        <i class="ti ti-chart-bar"></i><span>Monatsübersicht</span>
+      </button>
+      <button class="nav-item" onclick="showView('projects')" id="nav-projects">
+        <i class="ti ti-folder"></i><span>Projekte &amp; Budgets</span>
+      </button>
+
+      <div class="nav-section">Projekte</div>
+      <div id="project-nav-list"></div>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" onclick="showView('import')" id="nav-import">
+          <i class="ti ti-upload"></i><span>Import / Export</span>
+        </button>
+        <div style="padding: 8px 1rem; display: flex; align-items: center; gap: 6px;">
+          <div class="sync-dot" id="sync-dot"></div>
+          <span style="font-size: 11px; color: var(--text3);" id="sync-status">Verbunden</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="main">
+      <div class="topbar">
+        <h2 id="view-title">Eintrag erfassen</h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="topbar-actions"></div>
+        </div>
+      </div>
+      <div class="content" id="main-content">
+        <div class="loading"><i class="ti ti-loader"></i> Wird geladen...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-container"></div>
+
+<script>
+// ─── Firebase Config ───────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCDzYcrxDGGHEZ0lrdn5Tr_VOE0mNjd-0I",
+  authDomain: "zeiterfassung-51b88.firebaseapp.com",
+  projectId: "zeiterfassung-51b88",
+  storageBucket: "zeiterfassung-51b88.appspot.com",
+  messagingSenderId: "placeholder",
+  appId: "placeholder"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+const COLORS = ['#185FA5','#1D9E75','#D85A30','#BA7517','#993556','#533AB7','#639922','#E24B4A','#0F6E56','#3266AD'];
+const COLOR_LABELS = ['Blau','Grün','Koralle','Amber','Pink','Lila','Hellgrün','Rot','Dunkelgrün','Marine'];
+const DEFAULT_PROJECTS = [
+  { id: 'p_default1', name: 'Business Allgemein', color: '#888780', budget: 0, active: true, order: 99 },
+];
+
+// ─── State ─────────────────────────────────────────────────────────────────
+let currentUser = null;
+let data = { projects: [], entries: [] };
+let unsubProjects = null;
+let unsubEntries = null;
+
+const state = {
+  view: 'log',
+  currentWeekOffset: 0,
+  currentMonth: new Date().getMonth(),
+  currentYear: new Date().getFullYear(),
+  selectedProject: null,
+  syncing: false,
+};
+
+// ─── Auth ───────────────────────────────────────────────────────────────────
+function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    console.error('Login error:', err);
+    alert('Anmeldung fehlgeschlagen: ' + err.message);
+  });
+}
+
+function signOut() {
+  if (confirm('Wirklich abmelden?')) {
+    if (unsubProjects) unsubProjects();
+    if (unsubEntries) unsubEntries();
+    auth.signOut();
+  }
+}
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    setupUserUI(user);
+    subscribeToData();
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    data = { projects: [], entries: [] };
+  }
+});
+
+function setupUserUI(user) {
+  document.getElementById('user-name-display').textContent = user.displayName?.split(' ')[0] || user.email;
+  const avatarContainer = document.getElementById('user-avatar-container');
+  if (user.photoURL) {
+    avatarContainer.innerHTML = `<img src="${user.photoURL}" class="user-avatar" alt="">`;
+  } else {
+    const initials = (user.displayName || user.email || '?').charAt(0).toUpperCase();
+    avatarContainer.innerHTML = `<div class="user-avatar-fallback">${initials}</div>`;
+  }
+}
+
+// ─── Firestore ──────────────────────────────────────────────────────────────
+function userRef() {
+  return db.collection('users').doc(currentUser.uid);
+}
+
+function setSyncing(val) {
+  state.syncing = val;
+  const dot = document.getElementById('sync-dot');
+  const status = document.getElementById('sync-status');
+  if (dot) dot.className = 'sync-dot' + (val ? ' syncing' : '');
+  if (status) status.textContent = val ? 'Synchronisiert...' : 'Verbunden';
+}
+
+function subscribeToData() {
+  setSyncing(true);
+
+  // Projects
+  unsubProjects = userRef().collection('projects')
+    .orderBy('order', 'asc')
+    .onSnapshot(snap => {
+      data.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (data.projects.length === 0) {
+        // First time: seed default projects
+        DEFAULT_PROJECTS.forEach(p => saveProject(p));
+      }
+      renderProjectNav();
+      if (state.view !== 'log' || data.entries.length > 0) render();
+    }, err => console.error('Projects error:', err));
+
+  // Entries — last 500 sorted by date desc
+  unsubEntries = userRef().collection('entries')
+    .orderBy('date', 'desc')
+    .limit(500)
+    .onSnapshot(snap => {
+      data.entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSyncing(false);
+      render();
+    }, err => {
+      console.error('Entries error:', err);
+      setSyncing(false);
+    });
+}
+
+async function saveProject(p) {
+  setSyncing(true);
+  try {
+    const { id, ...rest } = p;
+    await userRef().collection('projects').doc(id).set(rest);
+  } finally { setSyncing(false); }
+}
+
+async function deleteProject(id) {
+  setSyncing(true);
+  try {
+    await userRef().collection('projects').doc(id).delete();
+    // also delete entries
+    const batch = db.batch();
+    const entries = await userRef().collection('entries').where('projectId', '==', id).get();
+    entries.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  } finally { setSyncing(false); }
+}
+
+async function addEntry(entry) {
+  setSyncing(true);
+  try {
+    const { id, ...rest } = entry;
+    await userRef().collection('entries').doc(id).set(rest);
+  } finally { setSyncing(false); }
+}
+
+async function removeEntry(id) {
+  setSyncing(true);
+  try {
+    await userRef().collection('entries').doc(id).delete();
+  } finally { setSyncing(false); }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function uid() { return 'e' + Date.now() + Math.random().toString(36).slice(2, 6); }
+function getProjectById(id) { return data.projects.find(p => p.id === id); }
+
+function totalHoursForProject(projectId, year, month) {
+  return data.entries.filter(e => {
+    if (e.projectId !== projectId) return false;
+    if (year !== undefined) {
+      const d = new Date(e.date);
+      if (d.getFullYear() !== year || d.getMonth() !== month) return false;
+    }
+    return true;
+  }).reduce((s, e) => s + e.hours, 0);
+}
+
+function hoursThisMonth(projectId) {
+  const now = new Date();
+  return totalHoursForProject(projectId, now.getFullYear(), now.getMonth());
+}
+
+// ─── Routing ────────────────────────────────────────────────────────────────
+function showView(view, extra) {
+  state.view = view;
+  if (extra) Object.assign(state, extra);
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById('nav-' + view);
+  if (el) el.classList.add('active');
+  render();
+}
+
+function render() {
+  renderProjectNav();
+
+  const titles = {
+    log: 'Eintrag erfassen', week: 'Wochenansicht', month: 'Monatsübersicht',
+    projects: 'Projekte & Budgets', import: 'Import / Export',
+    project_detail: state.selectedProject ? (getProjectById(state.selectedProject)?.name || 'Projekt') : 'Projekt',
+  };
+  document.getElementById('view-title').textContent = titles[state.view] || '';
+
+  const actions = document.getElementById('topbar-actions');
+  actions.innerHTML = '';
+  if (state.view === 'projects') {
+    actions.innerHTML = `<button class="btn primary" onclick="openNewProjectModal()"><i class="ti ti-plus"></i> Neues Projekt</button>`;
+  }
+
+  const content = document.getElementById('main-content');
+  content.innerHTML = '';
+  const views = { log: renderLog, week: renderWeek, month: renderMonth, projects: renderProjects, import: renderImport, project_detail: renderProjectDetail };
+  (views[state.view] || renderLog)(content);
+}
+
+function renderProjectNav() {
+  const list = document.getElementById('project-nav-list');
+  if (!list) return;
+  list.innerHTML = data.projects.filter(p => p.active).map(p => `
+    <button class="nav-item ${state.view === 'project_detail' && state.selectedProject === p.id ? 'active' : ''}"
+      onclick="showView('project_detail', {selectedProject:'${p.id}'})">
+      <span class="project-dot" style="background:${p.color}"></span>
+      <span>${p.name}</span>
+    </button>
+  `).join('');
+}
+
+// ─── Views ──────────────────────────────────────────────────────────────────
+
+function renderLog(container) {
+  const recent = [...data.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-title">Neuer Zeiteintrag</div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div>
+          <label class="form-label">Datum</label>
+          <input type="date" id="entry-date" value="${new Date().toISOString().slice(0, 10)}">
+        </div>
+        <div>
+          <label class="form-label">Stunden</label>
+          <input type="number" id="entry-hours" min="0.25" max="24" step="0.25" placeholder="z.B. 2.5">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Projekt</label>
+        <select id="entry-project">
+          <option value="">Projekt wählen...</option>
+          ${data.projects.filter(p => p.active).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Beschreibung</label>
+        <textarea id="entry-desc" placeholder="Was habe ich heute gemacht?"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn primary" onclick="handleAddEntry()">
+          <i class="ti ti-check"></i> Eintrag speichern
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;padding:0 2px">
+      <span style="font-size:13px;font-weight:600">Letzte Einträge</span>
+      <span style="font-size:11px;color:var(--text3)">${data.entries.length} gesamt</span>
+    </div>
+    <div class="entry-list" id="entry-list">
+      ${recent.length ? recent.map(entryHTML).join('') : `<div class="empty-state"><i class="ti ti-clock"></i>Noch keine Einträge — leg jetzt los!</div>`}
+    </div>
+  `;
+}
+
+function entryHTML(e) {
+  const p = getProjectById(e.projectId);
+  const d = new Date(e.date);
+  const dateStr = d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+  return `<div class="entry-item">
+    <span class="entry-dot" style="background:${p?.color || '#888'}"></span>
+    <div class="entry-info">
+      <div class="entry-project">${p?.name || 'Unbekannt'}</div>
+      <div class="entry-desc">${e.description || '<span style="color:var(--text3);font-style:italic">Keine Beschreibung</span>'}</div>
+      <div class="entry-meta">${dateStr}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="entry-hours">${e.hours.toFixed(1)}h</span>
+      <button class="btn sm danger" onclick="handleDeleteEntry('${e.id}')"><i class="ti ti-trash"></i></button>
+    </div>
+  </div>`;
+}
+
+async function handleAddEntry() {
+  const date = document.getElementById('entry-date').value;
+  const hours = parseFloat(document.getElementById('entry-hours').value);
+  const projectId = document.getElementById('entry-project').value;
+  const description = document.getElementById('entry-desc').value.trim();
+  if (!date || isNaN(hours) || hours <= 0 || !projectId) {
+    alert('Bitte Datum, Stunden und Projekt angeben.');
+    return;
+  }
+  await addEntry({ id: uid(), date, hours, projectId, description, createdAt: new Date().toISOString() });
+  document.getElementById('entry-hours').value = '';
+  document.getElementById('entry-desc').value = '';
+}
+
+async function handleDeleteEntry(id) {
+  if (!confirm('Eintrag löschen?')) return;
+  await removeEntry(id);
+}
+
+function renderWeek(container) {
+  const today = new Date();
+  const weekStart = new Date(today);
+  const dow = today.getDay() || 7;
+  weekStart.setDate(today.getDate() - dow + 1 + state.currentWeekOffset * 7);
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+
+  const weekEntries = data.entries.filter(e => {
+    const d = new Date(e.date);
+    return d >= days[0] && d <= days[6];
+  });
+
+  const totalH = weekEntries.reduce((s, e) => s + e.hours, 0);
+  const periodLabel = `${days[0].toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} – ${days[6].toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const todayStr = today.toISOString().slice(0, 10);
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px">
+      <div class="month-nav">
+        <button class="btn sm" onclick="state.currentWeekOffset--;render()"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:13px;font-weight:600;min-width:220px;text-align:center">${periodLabel}</span>
+        <button class="btn sm" onclick="state.currentWeekOffset++;render()" ${state.currentWeekOffset >= 0 ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button>
+        ${state.currentWeekOffset !== 0 ? `<button class="btn sm" onclick="state.currentWeekOffset=0;render()">Heute</button>` : ''}
+      </div>
+      <div class="metric" style="padding:8px 14px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Diese Woche</span>
+        <span style="font-size:16px;font-weight:700">${totalH.toFixed(1)}h</span>
+      </div>
+    </div>
+    <div class="week-grid" id="week-grid"></div>
+    <div style="margin-top:1rem" id="week-legend"></div>
+  `;
+
+  const grid = container.querySelector('#week-grid');
+  days.forEach((day, i) => {
+    const dateStr = day.toISOString().slice(0, 10);
+    const dayEnts = weekEntries.filter(e => e.date === dateStr);
+    const dayTotal = dayEnts.reduce((s, e) => s + e.hours, 0);
+    const isToday = dateStr === todayStr;
+    const byProject = {};
+    dayEnts.forEach(e => { byProject[e.projectId] = (byProject[e.projectId] || 0) + e.hours; });
+
+    const segs = Object.entries(byProject).map(([pid, h]) => {
+      const p = getProjectById(pid);
+      return `<div class="day-seg" style="background:${p?.color || '#888'}22;color:${p?.color || '#888'}" title="${p?.name}: ${h.toFixed(1)}h">${p?.name?.slice(0, 7)}<br>${h.toFixed(1)}h</div>`;
+    }).join('');
+
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.innerHTML = `
+      <div class="day-header">${dayNames[i]}</div>
+      <div class="day-date ${isToday ? 'today' : ''}">${day.getDate()}</div>
+      <div class="day-body ${isToday ? 'today' : ''}">${segs || ''}</div>
+      ${dayTotal > 0 ? `<div class="day-total">${dayTotal.toFixed(1)}h</div>` : ''}
+    `;
+    grid.appendChild(col);
+  });
+
+  const projectsInWeek = [...new Set(weekEntries.map(e => e.projectId))];
+  if (projectsInWeek.length) {
+    container.querySelector('#week-legend').innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text2)">
+        ${projectsInWeek.map(pid => {
+          const p = getProjectById(pid);
+          const h = weekEntries.filter(e => e.projectId === pid).reduce((s, e) => s + e.hours, 0);
+          return `<span style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:2px;background:${p?.color};display:inline-block"></span>
+            ${p?.name}: <strong>${h.toFixed(1)}h</strong>
+          </span>`;
+        }).join('')}
+      </div>
+    `;
+  }
+}
+
+function renderMonth(container) {
+  const { currentMonth, currentYear } = state;
+  const monthName = new Date(currentYear, currentMonth).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+
+  const monthEntries = data.entries.filter(e => {
+    const d = new Date(e.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+  const totalH = monthEntries.reduce((s, e) => s + e.hours, 0);
+  const workDays = new Set(monthEntries.map(e => e.date)).size;
+
+  const byProject = {};
+  data.projects.forEach(p => { byProject[p.id] = 0; });
+  monthEntries.forEach(e => { byProject[e.projectId] = (byProject[e.projectId] || 0) + e.hours; });
+  const projectsWithHours = data.projects.filter(p => byProject[p.id] > 0);
+
+  const now = new Date();
+  const atLimit = currentMonth === now.getMonth() && currentYear === now.getFullYear();
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px">
+      <div class="month-nav">
+        <button class="btn sm" onclick="prevMonth()"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:13px;font-weight:600;min-width:160px;text-align:center">${monthName}</span>
+        <button class="btn sm" onclick="nextMonth()" ${atLimit ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button>
+      </div>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Gesamt</div>
+        <div class="metric-value">${totalH.toFixed(1)}h</div>
+        <div class="metric-sub">${monthEntries.length} Einträge</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Ø pro Tag</div>
+        <div class="metric-value">${workDays ? (totalH / workDays).toFixed(1) : '0'}h</div>
+        <div class="metric-sub">${workDays} Arbeitstage</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Aktive Projekte</div>
+        <div class="metric-value">${projectsWithHours.length}</div>
+        <div class="metric-sub">von ${data.projects.filter(p => p.active).length} gesamt</div>
+      </div>
+    </div>
+
+    ${projectsWithHours.length ? `
+    <div class="card">
+      <div class="card-title">Stunden nach Projekt</div>
+      <div style="position:relative;height:${Math.max(160, projectsWithHours.length * 48)}px">
+        <canvas id="month-chart" role="img" aria-label="Stunden nach Projekt ${monthName}">Stundenübersicht ${monthName}</canvas>
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="card">
+      <div class="card-title">Detailübersicht</div>
+      <table>
+        <thead><tr><th>Projekt</th><th>Stunden</th><th>Anteil</th><th>Einträge</th></tr></thead>
+        <tbody>
+          ${data.projects.map(p => {
+            const h = byProject[p.id] || 0;
+            if (!h) return '';
+            const cnt = monthEntries.filter(e => e.projectId === p.id).length;
+            return `<tr>
+              <td><span style="display:inline-flex;align-items:center;gap:7px">
+                <span style="width:8px;height:8px;border-radius:50%;background:${p.color};display:inline-block"></span>${p.name}
+              </span></td>
+              <td><strong>${h.toFixed(1)}h</strong></td>
+              <td>${totalH ? Math.round(h / totalH * 100) : 0}%</td>
+              <td>${cnt}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div id="compare-section"></div>
+  `;
+
+  if (projectsWithHours.length) {
+    new Chart(document.getElementById('month-chart'), {
+      type: 'bar',
+      data: {
+        labels: projectsWithHours.map(p => p.name),
+        datasets: [{
+          data: projectsWithHours.map(p => byProject[p.id]),
+          backgroundColor: projectsWithHours.map(p => p.color + 'CC'),
+          borderColor: projectsWithHours.map(p => p.color),
+          borderWidth: 1, borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { callback: v => v + 'h' } },
+          y: { grid: { display: false }, ticks: { autoSkip: false } }
+        }
+      }
+    });
+  }
+
+  renderMonthComparison(container.querySelector('#compare-section'));
+}
+
+function renderMonthComparison(container) {
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  const compData = months.map(({ year, month }) => {
+    const entries = data.entries.filter(e => {
+      const d = new Date(e.date);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+    return {
+      label: new Date(year, month).toLocaleDateString('de-DE', { month: 'short', year: '2-digit' }),
+      byProject: data.projects.reduce((acc, p) => {
+        acc[p.id] = entries.filter(e => e.projectId === p.id).reduce((s, e) => s + e.hours, 0);
+        return acc;
+      }, {})
+    };
+  });
+
+  const activeProjects = data.projects.filter(p => p.active);
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-title">Monatsvergleich — letzte 6 Monate</div>
+      <div style="position:relative;height:220px">
+        <canvas id="compare-chart" role="img" aria-label="Monatsvergleich letzte 6 Monate">Monatlicher Stundenvergleich</canvas>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:var(--text2)">
+        ${activeProjects.map(p => `<span style="display:flex;align-items:center;gap:5px">
+          <span style="width:10px;height:10px;border-radius:2px;background:${p.color};display:inline-block"></span>${p.name}
+        </span>`).join('')}
+      </div>
+    </div>
+  `;
+
+  new Chart(document.getElementById('compare-chart'), {
+    type: 'bar',
+    data: {
+      labels: compData.map(m => m.label),
+      datasets: activeProjects.map(p => ({
+        label: p.name,
+        data: compData.map(m => m.byProject[p.id] || 0),
+        backgroundColor: p.color + 'CC',
+        borderColor: p.color,
+        borderWidth: 1, borderRadius: 2,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { autoSkip: false } },
+        y: { stacked: true, grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { callback: v => v + 'h' } }
+      }
+    }
+  });
+}
+
+function prevMonth() {
+  state.currentMonth--;
+  if (state.currentMonth < 0) { state.currentMonth = 11; state.currentYear--; }
+  render();
+}
+function nextMonth() {
+  const now = new Date();
+  if (state.currentYear < now.getFullYear() || (state.currentYear === now.getFullYear() && state.currentMonth < now.getMonth())) {
+    state.currentMonth++;
+    if (state.currentMonth > 11) { state.currentMonth = 0; state.currentYear++; }
+    render();
+  }
+}
+
+function renderProjects(container) {
+  if (!data.projects.length) {
+    container.innerHTML = `<div class="empty-state"><i class="ti ti-folder"></i>Noch keine Projekte anlegt.</div>`;
+    return;
+  }
+  container.innerHTML = `<div id="proj-list"></div>`;
+  const list = container.querySelector('#proj-list');
+
+  data.projects.forEach(p => {
+    const totalH = totalHoursForProject(p.id);
+    const thisMonthH = hoursThisMonth(p.id);
+    const budgetPct = p.budget > 0 ? Math.min(totalH / p.budget * 100, 100) : 0;
+    const budgetColor = budgetPct > 85 ? '#E24B4A' : budgetPct > 60 ? '#BA7517' : p.color;
+
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    card.innerHTML = `
+      <div class="project-header">
+        <span style="width:13px;height:13px;border-radius:50%;background:${p.color};display:inline-block;flex-shrink:0"></span>
+        <span class="project-name">${p.name}</span>
+        <span class="badge" style="background:${p.active ? p.color + '20' : 'var(--surface2)'};color:${p.active ? p.color : 'var(--text3)'}">${p.active ? 'Aktiv' : 'Pausiert'}</span>
+        <button class="btn sm" onclick="openEditProjectModal('${p.id}')"><i class="ti ti-edit"></i> Bearbeiten</button>
+      </div>
+      ${p.budget > 0 ? `
+        <div style="margin-bottom:10px">
+          <div class="budget-bar"><div class="budget-fill" style="width:${budgetPct}%;background:${budgetColor}"></div></div>
+          <div class="budget-info">
+            <span>${totalH.toFixed(1)}h verbraucht</span>
+            <span style="color:${budgetColor};font-weight:600">${Math.round(budgetPct)}% von ${p.budget}h</span>
+            <span>${Math.max(0, p.budget - totalH).toFixed(1)}h offen</span>
+          </div>
+          ${budgetPct > 85 ? `<div class="alert danger" style="margin-top:8px;margin-bottom:0;padding:7px 12px"><i class="ti ti-alert-triangle"></i> Budget fast aufgebraucht!</div>` : ''}
+        </div>
+      ` : ''}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px">
+        <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Gesamt</div><div style="font-size:17px;font-weight:700">${totalH.toFixed(1)}h</div></div>
+        <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Diesen Monat</div><div style="font-size:17px;font-weight:700">${thisMonthH.toFixed(1)}h</div></div>
+        <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Einträge</div><div style="font-size:17px;font-weight:700">${data.entries.filter(e => e.projectId === p.id).length}</div></div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn sm" onclick="showView('project_detail',{selectedProject:'${p.id}'})"><i class="ti ti-chart-line"></i> Projektdetail</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function renderProjectDetail(container) {
+  const p = getProjectById(state.selectedProject);
+  if (!p) { container.innerHTML = '<div class="empty-state">Projekt nicht gefunden</div>'; return; }
+
+  const entries = data.entries.filter(e => e.projectId === p.id).sort((a, b) => b.date.localeCompare(a.date));
+  const totalH = entries.reduce((s, e) => s + e.hours, 0);
+  const budgetPct = p.budget > 0 ? Math.min(totalH / p.budget * 100, 100) : 0;
+  const budgetColor = budgetPct > 85 ? '#E24B4A' : budgetPct > 60 ? '#BA7517' : p.color;
+
+  const byMonth = {};
+  entries.forEach(e => {
+    const d = new Date(e.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    byMonth[key] = (byMonth[key] || 0) + e.hours;
+  });
+  const sortedMonths = Object.keys(byMonth).sort();
+
+  container.innerHTML = `
+    <button class="btn sm" style="margin-bottom:1rem" onclick="showView('projects')"><i class="ti ti-arrow-left"></i> Alle Projekte</button>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
+      <span style="width:14px;height:14px;border-radius:50%;background:${p.color};display:inline-block"></span>
+      <span style="font-size:17px;font-weight:700">${p.name}</span>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Gesamt Stunden</div><div class="metric-value">${totalH.toFixed(1)}h</div></div>
+      ${p.budget > 0 ? `
+        <div class="metric"><div class="metric-label">Budget verbraucht</div><div class="metric-value" style="color:${budgetColor}">${Math.round(budgetPct)}%</div><div class="metric-sub">${Math.max(0, p.budget - totalH).toFixed(1)}h verbleibend</div></div>
+        <div class="metric"><div class="metric-label">Budget gesamt</div><div class="metric-value">${p.budget}h</div></div>
+      ` : `<div class="metric"><div class="metric-label">Einträge</div><div class="metric-value">${entries.length}</div></div>`}
+      <div class="metric"><div class="metric-label">Diesen Monat</div><div class="metric-value">${hoursThisMonth(p.id).toFixed(1)}h</div></div>
+    </div>
+
+    ${p.budget > 0 ? `
+      <div class="card">
+        <div class="card-title">Budgetstatus</div>
+        <div class="budget-bar" style="height:10px"><div class="budget-fill" style="width:${budgetPct}%;background:${budgetColor}"></div></div>
+        <div class="budget-info" style="margin-top:6px">
+          <span>${totalH.toFixed(1)}h verbraucht</span>
+          <span style="color:${budgetColor};font-weight:600">${p.budget}h Kontingent</span>
+        </div>
+        ${budgetPct > 85 ? `<div class="alert danger" style="margin-top:10px;margin-bottom:0"><i class="ti ti-alert-triangle"></i> Budget fast aufgebraucht! Noch ${Math.max(0, p.budget - totalH).toFixed(1)}h verfügbar.</div>` : ''}
+      </div>
+    ` : ''}
+
+    ${sortedMonths.length ? `
+      <div class="card">
+        <div class="card-title">Stunden pro Monat</div>
+        <div style="position:relative;height:${Math.max(120, sortedMonths.length * 44)}px">
+          <canvas id="proj-chart" role="img" aria-label="Monatliche Stunden ${p.name}">Monatliche Stundenübersicht</canvas>
+        </div>
+      </div>
+    ` : ''}
+
+    <div class="card">
+      <div class="card-title">Alle Einträge (${entries.length})</div>
+      ${entries.length ? `<div class="entry-list">${entries.slice(0, 50).map(entryHTML).join('')}</div>` : `<div class="empty-state" style="padding:1rem"><i class="ti ti-clock"></i>Noch keine Einträge</div>`}
+    </div>
+  `;
+
+  if (sortedMonths.length) {
+    new Chart(document.getElementById('proj-chart'), {
+      type: 'bar',
+      data: {
+        labels: sortedMonths.map(m => {
+          const [y, mo] = m.split('-');
+          return new Date(y, mo - 1).toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+        }),
+        datasets: [{ data: sortedMonths.map(m => byMonth[m]), backgroundColor: p.color + 'CC', borderColor: p.color, borderWidth: 1, borderRadius: 4 }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { callback: v => v + 'h' } },
+          y: { grid: { display: false }, ticks: { autoSkip: false } }
+        }
+      }
+    });
+  }
+}
+
+function renderImport(container) {
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-title">CSV-Datei importieren</div>
+      <div class="alert warning"><i class="ti ti-info-circle"></i> Numbers: Ablage → Exportieren → CSV. Erwartet Spalten: datum, stunden, projekt, beschreibung</div>
+      <label class="upload-zone" for="csv-upload">
+        <i class="ti ti-upload" style="font-size:26px;display:block;margin-bottom:8px"></i>
+        CSV-Datei auswählen oder hierher ziehen
+      </label>
+      <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="handleCSVUpload(event)">
+      <div id="import-result"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Daten exportieren</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Alle Einträge als CSV exportieren</p>
+      <button class="btn primary" onclick="exportCSV()"><i class="ti ti-download"></i> CSV exportieren</button>
+    </div>
+  `;
+}
+
+async function handleCSVUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const resultEl = document.getElementById('import-result');
+  resultEl.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0"><i class="ti ti-loader"></i> Wird verarbeitet...</div>';
+
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true,
+    complete: async (results) => {
+      const rows = results.data;
+      if (!rows.length) { resultEl.innerHTML = '<div class="alert danger"><i class="ti ti-x"></i> Keine Zeilen gefunden.</div>'; return; }
+
+      const keys = Object.keys(rows[0]).map(k => k.toLowerCase().trim());
+      const origKeys = Object.keys(rows[0]);
+      const findKey = (...alts) => {
+        const idx = keys.findIndex(k => alts.some(a => k.includes(a)));
+        return idx >= 0 ? origKeys[idx] : null;
+      };
+      const fDate = findKey('datum', 'date', 'day', 'tag');
+      const fHours = findKey('stunden', 'hours', 'zeit', 'time', 'dauer', 'h');
+      const fProject = findKey('projekt', 'project', 'kunde', 'client');
+      const fDesc = findKey('beschreibung', 'description', 'desc', 'notiz', 'notes', 'tätigk', 'tätigkeit');
+
+      let imported = 0, skipped = 0;
+      const batch = db.batch();
+
+      for (const row of rows) {
+        const rawDate = fDate ? row[fDate] : null;
+        const rawHours = fHours ? row[fHours] : null;
+        const rawProject = fProject ? row[fProject] : null;
+        if (!rawDate || !rawHours || !rawProject) { skipped++; continue; }
+
+        const h = parseFloat(String(rawHours).replace(',', '.'));
+        if (isNaN(h) || h <= 0) { skipped++; continue; }
+
+        let date = String(rawDate).trim();
+        if (date.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+          const [d, m, y] = date.split('.');
+          date = `${y}-${m}-${d}`;
+        }
+        if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) { skipped++; continue; }
+
+        const pName = String(rawProject).trim();
+        let proj = data.projects.find(p => p.name.toLowerCase() === pName.toLowerCase());
+        if (!proj) {
+          const newId = 'p_' + uid();
+          proj = { id: newId, name: pName, color: COLORS[data.projects.length % COLORS.length], budget: 0, active: true, order: data.projects.length };
+          await saveProject(proj);
+        }
+
+        const desc = fDesc ? (row[fDesc] || '') : '';
+        const entryId = uid();
+        const entryRef = userRef().collection('entries').doc(entryId);
+        batch.set(entryRef, { date, hours: h, projectId: proj.id, description: String(desc).trim(), createdAt: new Date().toISOString() });
+        imported++;
+      }
+
+      await batch.commit();
+      resultEl.innerHTML = `<div class="alert success" style="margin-top:1rem"><i class="ti ti-check"></i> ${imported} Einträge importiert, ${skipped} übersprungen.</div>`;
+    },
+    error: (err) => {
+      resultEl.innerHTML = `<div class="alert danger"><i class="ti ti-x"></i> Fehler: ${err.message}</div>`;
+    }
+  });
+}
+
+function exportCSV() {
+  const rows = [['Datum', 'Stunden', 'Projekt', 'Beschreibung']];
+  [...data.entries].sort((a, b) => a.date.localeCompare(b.date)).forEach(e => {
+    const p = getProjectById(e.projectId);
+    rows.push([e.date, e.hours, p?.name || '', e.description || '']);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `zeiterfassung_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+
+// ─── Project Modals ─────────────────────────────────────────────────────────
+function openNewProjectModal() {
+  const colorOpts = COLORS.map((c, i) => `<span class="color-opt ${i === 0 ? 'selected' : ''}" style="background:${c}" data-color="${c}" onclick="selectColor(this)" title="${COLOR_LABELS[i]}"></span>`).join('');
+  showModal(`
+    <h3>Neues Projekt anlegen</h3>
+    <div class="form-group">
+      <label class="form-label">Projektname</label>
+      <input type="text" id="new-proj-name" placeholder="z.B. E.ON Home, RLB OÖ...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Farbe</label>
+      <div class="color-picker" id="color-picker">${colorOpts}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Stundenbudget (0 = kein Budget)</label>
+      <input type="number" id="new-proj-budget" min="0" step="0.5" value="0" placeholder="z.B. 40">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Abbrechen</button>
+      <button class="btn primary" onclick="handleSaveNewProject()"><i class="ti ti-check"></i> Anlegen</button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('new-proj-name')?.focus(), 50);
+}
+
+function openEditProjectModal(id) {
+  const p = getProjectById(id);
+  if (!p) return;
+  const colorOpts = COLORS.map((c, i) => `<span class="color-opt ${c === p.color ? 'selected' : ''}" style="background:${c}" data-color="${c}" onclick="selectColor(this)" title="${COLOR_LABELS[i]}"></span>`).join('');
+  showModal(`
+    <h3>Projekt bearbeiten</h3>
+    <div class="form-group">
+      <label class="form-label">Projektname</label>
+      <input type="text" id="edit-proj-name" value="${p.name}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Farbe</label>
+      <div class="color-picker" id="color-picker">${colorOpts}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Stundenbudget (0 = kein Budget)</label>
+      <input type="number" id="edit-proj-budget" min="0" step="0.5" value="${p.budget || 0}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select id="edit-proj-active">
+        <option value="true" ${p.active ? 'selected' : ''}>Aktiv</option>
+        <option value="false" ${!p.active ? 'selected' : ''}>Pausiert</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" onclick="handleDeleteProject('${id}')"><i class="ti ti-trash"></i> Löschen</button>
+      <button class="btn" onclick="closeModal()">Abbrechen</button>
+      <button class="btn primary" onclick="handleSaveEditProject('${id}')"><i class="ti ti-check"></i> Speichern</button>
+    </div>
+  `);
+}
+
+function selectColor(el) {
+  document.querySelectorAll('.color-opt').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function getSelectedColor() {
+  return document.querySelector('.color-opt.selected')?.dataset?.color || COLORS[0];
+}
+
+async function handleSaveNewProject() {
+  const name = document.getElementById('new-proj-name').value.trim();
+  if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+  const color = getSelectedColor();
+  const budget = parseFloat(document.getElementById('new-proj-budget').value) || 0;
+  const id = 'p_' + uid();
+  await saveProject({ id, name, color, budget, active: true, order: data.projects.length });
+  closeModal();
+}
+
+async function handleSaveEditProject(id) {
+  const p = getProjectById(id);
+  if (!p) return;
+  p.name = document.getElementById('edit-proj-name').value.trim() || p.name;
+  p.color = getSelectedColor();
+  p.budget = parseFloat(document.getElementById('edit-proj-budget').value) || 0;
+  p.active = document.getElementById('edit-proj-active').value === 'true';
+  await saveProject(p);
+  closeModal();
+}
+
+async function handleDeleteProject(id) {
+  if (!confirm('Projekt und alle zugehörigen Einträge löschen? Das kann nicht rückgängig gemacht werden.')) return;
+  await deleteProject(id);
+  closeModal();
+  showView('projects');
+}
+
+function showModal(html) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal" onclick="event.stopPropagation()">${html}</div>
+    </div>
+  `;
+}
+function closeModal() {
+  document.getElementById('modal-container').innerHTML = '';
+}
+</script>
+</body>
+</html>
