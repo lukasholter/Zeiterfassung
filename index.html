@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zeiterfassung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style>
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface2: #f0efe9;
+  --border: rgba(0,0,0,0.08);
+  --border-md: rgba(0,0,0,0.14);
+  --text: #1a1917;
+  --text2: #6b6a65;
+  --text3: #a09f9a;
+  --accent: #1a4fd6;
+  --accent-light: #e8eefb;
+  --accent-text: #1a4fd6;
+  --danger: #c0392b;
+  --danger-light: #fdf0ee;
+  --success: #1e7e45;
+  --success-light: #eef7f1;
+  --warning: #9a5a00;
+  --warning-light: #fdf5e6;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --sidebar-w: 230px;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111110;
+    --surface: #1c1c1a;
+    --surface2: #252522;
+    --border: rgba(255,255,255,0.07);
+    --border-md: rgba(255,255,255,0.13);
+    --text: #f0efe9;
+    --text2: #9a9991;
+    --text3: #5c5b56;
+    --accent: #4f7eff;
+    --accent-light: #1a2340;
+    --accent-text: #7fa0ff;
+    --danger: #e05c4a;
+    --danger-light: #2a1512;
+    --success: #4caf72;
+    --success-light: #0f2518;
+    --warning: #e0a030;
+    --warning-light: #2a1e06;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; }
+
+/* ── Auth Screen ─────────────────────────────────────── */
+#auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2.5rem;
+  text-align: center;
+  max-width: 380px;
+  width: 90%;
+}
+.auth-card h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+.auth-card p { font-size: 13px; color: var(--text2); margin-bottom: 2rem; }
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 11px 20px;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+}
+.google-btn:hover { background: var(--surface2); }
+.google-btn svg { width: 18px; height: 18px; }
+
+/* ── App Shell ───────────────────────────────────────── */
+#app { display: none; height: 100vh; display: none; flex-direction: column; }
+#app.ready { display: flex; }
+
+.topnav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 1.25rem;
+  height: 52px;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+.topnav-logo { font-size: 15px; font-weight: 500; margin-right: auto; display: flex; align-items: center; gap: 8px; }
+.topnav-logo span { font-size: 11px; color: var(--text3); font-family: var(--mono); background: var(--surface2); padding: 2px 7px; border-radius: 20px; }
+.nav-tabs { display: flex; gap: 2px; }
+.nav-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--radius);
+  font-size: 13px; color: var(--text2);
+  cursor: pointer; border: none; background: none; font-family: var(--font);
+  transition: background 0.12s, color 0.12s;
+}
+.nav-tab:hover { background: var(--surface2); color: var(--text); }
+.nav-tab.active { background: var(--accent-light); color: var(--accent-text); font-weight: 500; }
+.nav-tab i { font-size: 15px; }
+.user-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: none;
+  font-family: var(--font); font-size: 13px; color: var(--text2);
+  cursor: pointer; transition: background 0.12s;
+}
+.user-btn:hover { background: var(--surface2); }
+.avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--accent-text); flex-shrink: 0; overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Project Sidebar (mobile: hidden) ────────────────── */
+.shell { display: flex; flex: 1; overflow: hidden; }
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 1rem 0;
+  overflow-y: auto;
+}
+.sidebar-section { padding: 0.5rem 1rem 0.25rem; font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; }
+.proj-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 1rem; font-size: 13px; color: var(--text2);
+  cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+  font-family: var(--font); transition: background 0.12s;
+}
+.proj-item:hover { background: var(--surface2); color: var(--text); }
+.proj-item.active { background: var(--accent-light); color: var(--accent-text); font-weight: 500; }
+.proj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.proj-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.proj-badge { font-size: 10px; font-family: var(--mono); background: var(--surface2); color: var(--text3); padding: 1px 5px; border-radius: 20px; }
+.sidebar-add {
+  margin: 0.5rem 1rem 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px; border-radius: var(--radius);
+  border: 1px dashed var(--border-md);
+  font-size: 12px; color: var(--text3);
+  cursor: pointer; background: none; font-family: var(--font);
+  transition: border-color 0.12s, color 0.12s;
+}
+.sidebar-add:hover { border-color: var(--accent); color: var(--accent-text); }
+
+/* ── Main Content ────────────────────────────────────── */
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.view-header {
+  padding: 1.25rem 1.5rem 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-shrink: 0;
+}
+.view-header h2 { font-size: 17px; font-weight: 500; }
+.content { padding: 1.25rem 1.5rem; flex: 1; max-width: 900px; }
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border-md);
+  background: var(--surface); color: var(--text);
+  font-family: var(--font); font-size: 13px; cursor: pointer;
+  transition: background 0.12s;
+}
+.btn:hover { background: var(--surface2); }
+.btn:active { transform: scale(0.98); }
+.btn i { font-size: 15px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { opacity: 0.88; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--surface2); }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.btn.danger:hover { background: var(--danger-light); }
+.btn.sm { padding: 4px 10px; font-size: 12px; }
+
+/* ── Cards ───────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.card-title { font-size: 13px; font-weight: 500; margin-bottom: 1rem; color: var(--text2); letter-spacing: 0.01em; }
+
+/* ── Metrics ─────────────────────────────────────────── */
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.metric { background: var(--surface2); border-radius: var(--radius); padding: 1rem; }
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.metric-value { font-size: 22px; font-weight: 300; font-family: var(--mono); }
+.metric-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* ── Forms ───────────────────────────────────────────── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { margin-bottom: 12px; }
+.form-label { font-size: 12px; color: var(--text2); margin-bottom: 5px; display: block; }
+input[type=text], input[type=number], input[type=date], input[type=email], select, textarea {
+  width: 100%; padding: 8px 11px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius); font-family: var(--font); font-size: 14px;
+  outline: none; transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,79,214,0.1); }
+textarea { resize: vertical; min-height: 64px; }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+
+/* ── Entry List ──────────────────────────────────────── */
+.entry-list { display: flex; flex-direction: column; gap: 6px; }
+.entry-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; background: var(--surface2);
+  border-radius: var(--radius); transition: background 0.12s;
+}
+.entry-item:hover { background: var(--bg); }
+.entry-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.entry-info { flex: 1; min-width: 0; }
+.entry-meta { font-size: 11px; color: var(--text3); display: flex; gap: 8px; margin-bottom: 2px; }
+.entry-desc { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-hours { font-size: 14px; font-weight: 500; font-family: var(--mono); flex-shrink: 0; align-self: center; }
+.entry-del { opacity: 0; transition: opacity 0.15s; }
+.entry-item:hover .entry-del { opacity: 1; }
+
+/* ── Budget Bar ──────────────────────────────────────── */
+.budget-bar { height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin: 6px 0 4px; }
+.budget-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+.budget-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); }
+
+/* ── Week View A ─────────────────────────────────────── */
+.wva-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1rem; }
+.wva-topbar { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1.25rem; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; gap: 8px; }
+.wva-strips { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 0.5px solid var(--border); }
+.wva-day { padding: 0.6rem 0.4rem; text-align: center; border-right: 0.5px solid var(--border); cursor: pointer; transition: background 0.12s; }
+.wva-day:last-child { border-right: none; }
+.wva-day:hover { background: var(--surface2); }
+.wva-day.active-day { background: var(--surface2); }
+.wva-day-name { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.wva-day-num { font-size: 17px; font-weight: 500; margin: 3px 0 5px; color: var(--text); }
+.wva-day-num.today { color: var(--accent); }
+.wva-bar-track { height: 3px; background: var(--border); border-radius: 2px; margin: 0 4px 4px; overflow: hidden; }
+.wva-bar-fill { height: 3px; border-radius: 2px; transition: width 0.3s ease; }
+.wva-day-h { font-size: 11px; color: var(--text3); font-weight: 500; }
+.wva-day-h.has-h { color: var(--text2); }
+.wva-day-dots { display: flex; justify-content: center; gap: 2px; margin-top: 4px; min-height: 7px; }
+.wva-proj-dot { width: 5px; height: 5px; border-radius: 50%; }
+.wva-detail { padding: 1rem 1.25rem; min-height: 120px; }
+.wva-detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.wva-detail-date { font-size: 14px; font-weight: 500; }
+.wva-detail-total { font-size: 12px; font-weight: 500; background: var(--accent-bg); color: var(--accent-text); padding: 3px 10px; border-radius: 20px; }
+.wva-entry { display: flex; align-items: flex-start; gap: 9px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+.wva-entry:last-child { border-bottom: none; }
+.wva-entry-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+.wva-entry-body { flex: 1; min-width: 0; }
+.wva-entry-proj { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.wva-entry-desc { font-size: 13px; color: var(--text); margin-top: 1px; }
+.wva-entry-h { font-size: 13px; font-weight: 500; flex-shrink: 0; }
+.wva-summary { display: flex; align-items: center; gap: 0; border-top: 0.5px solid var(--border); background: var(--surface2); }
+.wva-sum-item { flex: 1; text-align: center; padding: 0.65rem 0.5rem; border-right: 0.5px solid var(--border); }
+.wva-sum-item:last-child { border-right: none; }
+.wva-sum-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-bottom: 3px; }
+.wva-sum-name { font-size: 10px; color: var(--text3); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wva-sum-h { font-size: 13px; font-weight: 500; display: block; }
+
+/* ── Modal ───────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+  animation: fadeIn 0.15s;
+}
+@keyframes fadeIn { from { opacity: 0; } }
+.modal {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: 1.5rem; width: 420px; max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: slideUp 0.15s;
+}
+@keyframes slideUp { from { transform: translateY(10px); opacity: 0; } }
+.modal h3 { font-size: 15px; font-weight: 500; margin-bottom: 1.25rem; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; }
+
+/* ── Color Picker ────────────────────────────────────── */
+.color-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.color-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2.5px solid transparent; transition: transform 0.12s; }
+.color-swatch.active { border-color: var(--text); transform: scale(1.12); }
+
+/* ── Alerts ──────────────────────────────────────────── */
+.alert { padding: 9px 13px; border-radius: var(--radius); font-size: 13px; display: flex; align-items: center; gap: 7px; margin-bottom: 1rem; }
+.alert.success { background: var(--success-light); color: var(--success); }
+.alert.warning { background: var(--warning-light); color: var(--warning); }
+.alert.danger { background: var(--danger-light); color: var(--danger); }
+
+/* ── Upload Zone ─────────────────────────────────────── */
+.upload-zone {
+  border: 1.5px dashed var(--border-md);
+  border-radius: var(--radius); padding: 2rem;
+  text-align: center; cursor: pointer;
+  color: var(--text2); font-size: 13px;
+  transition: border-color 0.15s, color 0.15s;
+  display: block;
+}
+.upload-zone:hover { border-color: var(--accent); color: var(--accent-text); }
+.upload-zone i { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.5; }
+
+/* ── Table ───────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { font-size: 11px; color: var(--text3); font-weight: 500; text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Loading ─────────────────────────────────────────── */
+#loading {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; font-size: 14px; color: var(--text2);
+}
+.spinner { width: 28px; height: 28px; border: 2px solid var(--border-md); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Empty State ─────────────────────────────────────── */
+.empty { text-align: center; padding: 2.5rem 1rem; color: var(--text3); }
+.empty i { font-size: 36px; display: block; margin-bottom: 0.75rem; opacity: 0.3; }
+.empty p { font-size: 13px; }
+
+/* ── Sync indicator ─────────────────────────────────── */
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); display: inline-block; }
+.sync-dot.syncing { animation: pulse 1s infinite; background: var(--warning); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes countUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+@keyframes barSlide { from{width:0!important} }
+@keyframes insightPop { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Greeting Header */
+.greeting-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 1.1rem 1.5rem; display: flex; align-items: center;
+  justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  margin: -1.25rem -1.5rem 1.25rem;
+}
+.greeting-date { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing:.07em; margin-bottom:5px; }
+.greeting-text { font-size: 19px; font-weight: 300; color: var(--text); animation: fadeUp .4s .05s ease both; opacity: 0; }
+.greeting-quote { font-size: 12px; color: var(--text3); font-style: italic; margin-top:5px; animation: fadeUp .4s .15s ease both; opacity: 0; max-width: 480px; line-height: 1.5; }
+.greeting-right { text-align: right; flex-shrink: 0; animation: countUp .5s .2s ease both; opacity: 0; }
+.greeting-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing:.07em; font-family: var(--mono); margin-bottom:2px; }
+.greeting-stat-val { font-size: 26px; font-weight: 300; font-family: var(--mono); color: var(--text); }
+.greeting-stat-delta { font-size: 11px; margin-top: 2px; }
+
+/* ── Insight Cards */
+.insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.insight-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1rem 1.1rem;
+  animation: insightPop .4s ease both; opacity: 0;
+}
+.insight-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 9px; font-size: 15px; }
+.insight-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing:.07em; font-weight:500; margin-bottom:4px; }
+.insight-val { font-size: 16px; font-weight: 500; font-family: var(--mono); color: var(--text); margin-bottom: 3px; }
+.insight-sub { font-size: 11px; color: var(--text3); line-height: 1.4; }
+
+/* ── Budget Ring */
+.budget-ring-wrap { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.budget-ring-fill { transition: stroke-dashoffset 1.3s cubic-bezier(.4,0,.2,1); }
+.budget-ring-pct { font-size: 16px; font-weight: 500; font-family: var(--mono); }
+.budget-ring-sub { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing:.05em; margin-top:1px; }
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .nav-tabs { overflow-x: auto; }
+  .form-row { grid-template-columns: 1fr; }
+  .wva-strips { grid-template-columns: repeat(7, 1fr); }
+  .wva-day-name { font-size: 8px; }
+  .wva-day-num { font-size: 13px; }
+  .content { padding: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div>Wird geladen…</div>
+
+<div id="auth-screen" style="display:none">
+  <div class="auth-card">
+    <div style="font-size:32px;margin-bottom:1rem">⏱</div>
+    <h1>Zeiterfassung</h1>
+    <p>Für Lukas — Strategie &amp; Kommunikation</p>
+    <button class="google-btn" onclick="signInWithGoogle()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Mit Google anmelden
+    </button>
+  </div>
+</div>
+
+<div id="app">
+  <nav class="topnav">
+    <div class="topnav-logo">
+      <i class="ti ti-clock" style="font-size:18px;color:var(--accent-text)"></i>
+      Zeiterfassung
+      <span id="sync-status" title="Verbunden mit Firebase"></span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" id="tab-log" onclick="setView('log')"><i class="ti ti-plus-circle"></i><span class="tab-label">Erfassen</span></button>
+      <button class="nav-tab" id="tab-week" onclick="setView('week')"><i class="ti ti-calendar-week"></i><span class="tab-label">Woche</span></button>
+      <button class="nav-tab" id="tab-month" onclick="setView('month')"><i class="ti ti-chart-bar"></i><span class="tab-label">Monat</span></button>
+      <button class="nav-tab" id="tab-projects" onclick="setView('projects')"><i class="ti ti-folder"></i><span class="tab-label">Projekte</span></button>
+      <button class="nav-tab" id="tab-import" onclick="setView('import')"><i class="ti ti-transfer"></i><span class="tab-label">Import</span></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="avatar" id="user-avatar"></div>
+      <button class="btn ghost sm" onclick="signOut()" title="Abmelden"><i class="ti ti-logout"></i></button>
+    </div>
+  </nav>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">Projekte</div>
+      <div id="proj-nav"></div>
+      <button class="sidebar-add" onclick="openNewProjectModal()"><i class="ti ti-plus"></i> Projekt hinzufügen</button>
+    </aside>
+    <div class="main">
+      <div class="view-header">
+        <h2 id="view-title">Eintrag erfassen</h2>
+        <div id="view-actions"></div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCDzYcrxDGGHEZ0lrdn5Tr_VOE0mNjd-0I",
+  authDomain: "zeiterfassung-51b88.firebaseapp.com",
+  projectId: "zeiterfassung-51b88",
+  storageBucket: "zeiterfassung-51b88.appspot.com",
+  messagingSenderId: "697845659779",
+  appId: "1:697845659779:web:5831377ba3f0df915543b6"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+// ── State ──────────────────────────────────────────────
+let state = {
+  view: 'log',
+  weekOffset: 0,
+  month: new Date().getMonth(),
+  year: new Date().getFullYear(),
+  selectedProject: null,
+  uid: null,
+};
+let data = { projects: [], entries: [] };
+let unsubscribeProjects = null;
+let unsubscribeEntries = null;
+
+// ── Helpers ────────────────────────────────────────────
+const COLORS = ['#1a4fd6','#0f9e6e','#d84e1e','#b07000','#8a2b5a','#5b35c0','#1e7e45','#c0392b','#0a5e6a','#6d3a00'];
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function projRef() { return collection(db, `users/${state.uid}/projects`); }
+function entrRef() { return collection(db, `users/${state.uid}/entries`); }
+
+function getProject(id) { return data.projects.find(p => p.id === id); }
+function totalH(projectId, year, month) {
+  return data.entries.filter(e => {
+    if (e.projectId !== projectId) return false;
+    if (year !== undefined) {
+      const d = new Date(e.date);
+      return d.getFullYear() === year && d.getMonth() === month;
+    }
+    return true;
+  }).reduce((s,e) => s + e.hours, 0);
+}
+function thisMonthH(pid) {
+  const n = new Date();
+  return totalH(pid, n.getFullYear(), n.getMonth());
+}
+
+function setSyncStatus(syncing) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.innerHTML = `<span class="sync-dot ${syncing ? 'syncing' : ''}" title="${syncing ? 'Wird synchronisiert…' : 'Synchronisiert ✓'}"></span>`;
+}
+
+// ── Auth ───────────────────────────────────────────────
+window.signInWithGoogle = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch(e) { console.error(e); alert('Anmeldung fehlgeschlagen: ' + e.message); }
+};
+window.signOut = async () => {
+  if (unsubscribeProjects) unsubscribeProjects();
+  if (unsubscribeEntries) unsubscribeEntries();
+  await fbSignOut(auth);
+};
+
+onAuthStateChanged(auth, user => {
+  document.getElementById('loading').style.display = 'none';
+  if (user) {
+    state.uid = user.uid;
+    const av = document.getElementById('user-avatar');
+    if (user.photoURL) av.innerHTML = `<img src="${user.photoURL}" alt="">`;
+    else av.textContent = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+    startListeners();
+  } else {
+    state.uid = null;
+    document.getElementById('app').classList.remove('ready');
+    document.getElementById('auth-screen').style.display = 'flex';
+  }
+});
+
+// ── Firestore listeners ────────────────────────────────
+function startListeners() {
+  setSyncStatus(true);
+  if (unsubscribeProjects) unsubscribeProjects();
+  if (unsubscribeEntries) unsubscribeEntries();
+
+  unsubscribeProjects = onSnapshot(projRef(), snap => {
+    data.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+    setSyncStatus(false);
+  });
+
+  unsubscribeEntries = onSnapshot(query(entrRef(), orderBy('date','desc')), snap => {
+    data.entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+    setSyncStatus(false);
+  });
+}
+
+// ── CRUD ───────────────────────────────────────────────
+async function addEntry(date, hours, projectId, description) {
+  setSyncStatus(true);
+  await addDoc(entrRef(), { date, hours, projectId, description, createdAt: serverTimestamp() });
+}
+async function delEntry(id) {
+  setSyncStatus(true);
+  await deleteDoc(doc(db, `users/${state.uid}/entries/${id}`));
+}
+async function addProject(name, color, budget) {
+  setSyncStatus(true);
+  await addDoc(projRef(), { name, color, budget: budget||0, active: true, createdAt: serverTimestamp() });
+}
+async function updateProject(id, updates) {
+  setSyncStatus(true);
+  await updateDoc(doc(db, `users/${state.uid}/projects/${id}`), updates);
+}
+async function deleteProject(id) {
+  setSyncStatus(true);
+  // delete all entries for this project
+  const ents = data.entries.filter(e => e.projectId === id);
+  await Promise.all(ents.map(e => deleteDoc(doc(db, `users/${state.uid}/entries/${e.id}`))));
+  await deleteDoc(doc(db, `users/${state.uid}/projects/${id}`));
+}
+
+// ── Render ─────────────────────────────────────────────
+window.setView = (v, extra) => {
+  state.view = v;
+  if (extra) Object.assign(state, extra);
+  render();
+};
+
+// ── Quotes & Insights ──────────────────────────────────
+const QUOTES = [
+  {q:"Strategie ist das, was übrig bleibt, wenn alle Pläne scheitern.", src:"Helmut Schmidt"},
+  {q:"Nicht die Stunden zählen, sondern was in ihnen geschaffen wird.", src:""},
+  {q:"Gute Kommunikation ist kein Talent — sie ist Handwerk. Und Handwerk braucht Zeit.", src:""},
+  {q:"Fokus ist die Kunst, Nein zu sagen.", src:"Steve Jobs"},
+  {q:"Das Geheimnis des Fortschritts ist, anzufangen.", src:"Mark Twain"},
+  {q:"Qualität braucht Zeit. Und Zeit braucht Klarheit.", src:""},
+  {q:"Der beste Zeitpunkt war gestern. Der zweitbeste ist jetzt.", src:"Chinesisches Sprichwort"},
+  {q:"Wer viel arbeitet, muss auch wissen, wofür.", src:""},
+  {q:"Die wichtigste Ressource eines Beraters ist seine Aufmerksamkeit.", src:""},
+  {q:"Zwischen Reaktion und Strategie liegt der Unterschied zwischen Berater und Beratenem.", src:""},
+  {q:"Komplexität reduzieren — das ist der Job.", src:""},
+  {q:"Man muss die Dinge so einfach wie möglich machen, aber nicht einfacher.", src:"Albert Einstein"},
+  {q:"Was gemessen wird, wird auch gemanagt.", src:"Peter Drucker"},
+  {q:"Zeit ist das einzige Kapital, das sich nicht aufstocken lässt.", src:""},
+  {q:"Ideen sind wertlos. Umsetzung ist alles.", src:""},
+];
+let quoteIdx = Math.floor(Math.random() * QUOTES.length);
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 5)  return "Nachtschicht, Lukas 🌙";
+  if (h < 12) return "Guten Morgen, Lukas";
+  if (h < 14) return "Guten Mittag, Lukas";
+  if (h < 18) return "Guten Nachmittag, Lukas";
+  return "Guten Abend, Lukas";
+}
+
+function buildGreetingHTML() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("de-DE", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+  const q = QUOTES[quoteIdx % QUOTES.length];
+  const quoteStr = q.src
+    ? `„${q.q}" — ${q.src}`
+    : `„${q.q}"`;
+
+  // This month hours
+  const nm = now.getMonth(), ny = now.getFullYear();
+  const mh = data.entries.filter(e => {
+    const d = new Date(e.date); return d.getFullYear() === ny && d.getMonth() === nm;
+  }).reduce((s,e) => s + e.hours, 0);
+
+  // Prev month
+  const pm = nm === 0 ? 11 : nm - 1;
+  const py = nm === 0 ? ny - 1 : ny;
+  const pmh = data.entries.filter(e => {
+    const d = new Date(e.date); return d.getFullYear() === py && d.getMonth() === pm;
+  }).reduce((s,e) => s + e.hours, 0);
+
+  const delta = pmh > 0 ? Math.round((mh - pmh) / pmh * 100) : null;
+  const deltaHTML = delta !== null
+    ? `<span style="color:${delta >= 0 ? 'var(--success)' : 'var(--danger)'}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}% vs. Vormonat</span>`
+    : '';
+
+  const monthName = now.toLocaleDateString("de-DE", {month:"long"});
+
+  return `
+    <div class="greeting-header">
+      <div class="greeting-left">
+        <div class="greeting-date">${dateStr}</div>
+        <div class="greeting-text">${getGreeting()}</div>
+        <div class="greeting-quote">${quoteStr}</div>
+      </div>
+      <div class="greeting-right">
+        <div class="greeting-stat-label">${monthName}</div>
+        <div class="greeting-stat-val" id="greeting-counter">0h</div>
+        <div class="greeting-stat-delta">${deltaHTML}</div>
+      </div>
+    </div>`;
+}
+
+function animateCounter(targetH) {
+  const el = document.getElementById("greeting-counter");
+  if (!el) return;
+  let v = 0;
+  const step = () => {
+    v = Math.min(v + Math.max(0.25, targetH / 40), targetH);
+    el.textContent = v.toFixed(1) + "h";
+    if (v < targetH) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function buildInsightsHTML() {
+  const now = new Date();
+  const nm = now.getMonth(), ny = now.getFullYear();
+  const entries = data.entries;
+
+  // Produktivster Wochentag (0=Mo..6=So, JS: 0=So fix)
+  const dayTotals = [0,0,0,0,0,0,0];
+  const dayCounts = [0,0,0,0,0,0,0];
+  entries.forEach(e => {
+    const d = new Date(e.date + "T00:00:00");
+    const dow = (d.getDay() + 6) % 7; // 0=Mo
+    dayTotals[dow] += e.hours;
+    dayCounts[dow]++;
+  });
+  const dayNames = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+  const bestDow = dayTotals.slice(0,5).reduce((bi,v,i,arr) => v > arr[bi] ? i : bi, 0);
+  const bestDowAvg = dayCounts[bestDow] > 0 ? (dayTotals[bestDow] / dayCounts[bestDow]).toFixed(1) : "0";
+
+  // Bester Monat ever
+  const byMonth = {};
+  entries.forEach(e => {
+    const d = new Date(e.date); const k = d.getFullYear() + "-" + d.getMonth();
+    byMonth[k] = (byMonth[k] || 0) + e.hours;
+  });
+  const bestMonthKey = Object.keys(byMonth).sort((a,b) => byMonth[b] - byMonth[a])[0];
+  let bestMonthLabel = "—", bestMonthH = 0;
+  if (bestMonthKey) {
+    const [y,m] = bestMonthKey.split("-");
+    bestMonthLabel = new Date(+y, +m).toLocaleDateString("de-DE", {month:"long", year:"numeric"});
+    bestMonthH = byMonth[bestMonthKey].toFixed(1);
+  }
+
+  // Tagesschnitt (aktive Tage)
+  const activeDays = new Set(entries.filter(e => {
+    const d = new Date(e.date); return d.getFullYear() === ny && d.getMonth() === nm;
+  }).map(e => e.date)).size;
+  const mhTotal = entries.filter(e => {
+    const d = new Date(e.date); return d.getFullYear() === ny && d.getMonth() === nm;
+  }).reduce((s,e) => s + e.hours, 0);
+  const avgDay = activeDays > 0 ? (mhTotal / activeDays).toFixed(1) : "0";
+
+  // Top-Projekt diesen Monat
+  const byProj = {};
+  entries.filter(e => { const d = new Date(e.date); return d.getFullYear() === ny && d.getMonth() === nm; })
+    .forEach(e => { byProj[e.projectId] = (byProj[e.projectId] || 0) + e.hours; });
+  const topProjId = Object.keys(byProj).sort((a,b) => byProj[b] - byProj[a])[0];
+  const topProj = topProjId ? getProject(topProjId) : null;
+  const topProjPct = topProjId && mhTotal > 0 ? Math.round(byProj[topProjId] / mhTotal * 100) : 0;
+
+  const cards = [
+    {
+      icon:"ti-flame", bg:"#FAECE7", tc:"#993C1D", ic:"#D85A30",
+      label:"Produktivster Tag",
+      val: entries.length > 0 ? dayNames[bestDow] : "—",
+      sub: entries.length > 0 ? `Ø ${bestDowAvg}h — dein stärkster Wochentag` : "Noch keine Daten"
+    },
+    {
+      icon:"ti-trophy", bg:"#FAEEDA", tc:"#854F0B", ic:"#BA7517",
+      label:"Bester Monat",
+      val: bestMonthKey ? bestMonthLabel.split(" ")[0] + " " + bestMonthLabel.split(" ")[1] : "—",
+      sub: bestMonthKey ? `${bestMonthH}h — persönlicher Rekord` : "Noch keine Daten"
+    },
+    {
+      icon:"ti-clock", bg:"#E1F5EE", tc:"#0F6E56", ic:"#1D9E75",
+      label:"Ø Stunden/Tag",
+      val: avgDay + "h",
+      sub: activeDays > 0 ? `an ${activeDays} aktiven Tagen diesen Monat` : "Noch keine Einträge diesen Monat"
+    },
+    {
+      icon:"ti-chart-pie", bg:"#E6F1FB", tc:"#185FA5", ic:"#185FA5",
+      label:"Top-Projekt",
+      val: topProj ? topProj.name : "—",
+      sub: topProj ? `${topProjPct}% aller Stunden diesen Monat` : "Noch keine Daten"
+    },
+  ];
+
+  return `<div class="insight-grid">` + cards.map((c,i) => `
+    <div class="insight-card" style="animation-delay:${i*0.07}s">
+      <div class="insight-icon" style="background:${c.bg}">
+        <i class="ti ${c.icon}" style="color:${c.ic}" aria-hidden="true"></i>
+      </div>
+      <div class="insight-label">${c.label}</div>
+      <div class="insight-val">${c.val}</div>
+      <div class="insight-sub">${c.sub}</div>
+    </div>`).join('') + `</div>`;
+}
+
+function render() {
+  // Nav tabs
+  ['log','week','month','projects','import'].forEach(v => {
+    const t = document.getElementById('tab-' + v);
+    if (t) t.classList.toggle('active', state.view === v);
+  });
+
+  // Project sidebar
+  const pnav = document.getElementById('proj-nav');
+  if (pnav) {
+    pnav.innerHTML = data.projects.filter(p => p.active !== false).map(p => {
+      const mh = thisMonthH(p.id);
+      const isActive = state.view === 'project_detail' && state.selectedProject === p.id;
+      return `<button class="proj-item ${isActive?'active':''}" onclick="setView('project_detail',{selectedProject:'${p.id}'})">
+        <span class="proj-dot" style="background:${p.color}"></span>
+        <span class="proj-name">${p.name}</span>
+        ${mh > 0 ? `<span class="proj-badge">${mh.toFixed(1)}h</span>` : ''}
+      </button>`;
+    }).join('');
+  }
+
+  const titles = { log:'Eintrag erfassen', week:'Wochenansicht', month:'Monatsübersicht', projects:'Projekte & Budgets', import:'Import / Export', project_detail: getProject(state.selectedProject)?.name || 'Projekt' };
+  const el = document.getElementById('view-title');
+  if (el) el.textContent = titles[state.view] || '';
+
+  const va = document.getElementById('view-actions');
+  if (va) {
+    va.innerHTML = state.view === 'projects'
+      ? `<button class="btn primary" onclick="openNewProjectModal()"><i class="ti ti-plus"></i> Neues Projekt</button>`
+      : '';
+  }
+
+  const views = { log: renderLog, week: renderWeek, month: renderMonth, projects: renderProjects, import: renderImport, project_detail: renderProjectDetail };
+  const content = document.getElementById('content');
+  if (content) (views[state.view] || renderLog)(content);
+}
+
+// ── Log View ───────────────────────────────────────────
+function renderLog(c) {
+  const recent = [...data.entries].slice(0, 25);
+  const now = new Date();
+  const nm = now.getMonth(), ny = now.getFullYear();
+  const mh = data.entries.filter(e => {
+    const d = new Date(e.date); return d.getFullYear() === ny && d.getMonth() === nm;
+  }).reduce((s,e) => s + e.hours, 0);
+
+  c.innerHTML = buildGreetingHTML() + buildInsightsHTML() + `
+    <div class="card">
+      <div class="card-title" style="margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between">
+        <span>Neuer Zeiteintrag</span>
+        <button class="btn ghost sm" onclick="quoteIdx++;renderLog(document.getElementById('content'))" title="Nächster Spruch" style="font-size:11px;color:var(--text3)"><i class="ti ti-refresh"></i></button>
+      </div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Datum</label>
+          <input type="date" id="e-date" value="${new Date().toISOString().slice(0,10)}">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Stunden</label>
+          <input type="number" id="e-hours" min="0.25" max="24" step="0.25" placeholder="z.B. 2.5">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Projekt</label>
+        <select id="e-proj">
+          <option value="">Projekt wählen…</option>
+          ${data.projects.filter(p=>p.active!==false).map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Beschreibung</label>
+        <textarea id="e-desc" placeholder="Was habe ich heute gemacht?"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn primary" onclick="saveEntry()"><i class="ti ti-check"></i> Speichern</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+      <span style="font-size:13px;font-weight:500;color:var(--text2)">Letzte Einträge</span>
+      <span style="font-size:11px;color:var(--text3)">${data.entries.length} gesamt</span>
+    </div>
+    <div class="entry-list">
+      ${recent.length ? recent.map(entryHTML).join('') : `<div class="empty"><i class="ti ti-clock"></i><p>Noch keine Einträge. Los geht's!</p></div>`}
+    </div>`;
+
+  // Animate the month counter after render
+  requestAnimationFrame(() => animateCounter(mh));
+}
+
+function entryHTML(e) {
+  const p = getProject(e.projectId);
+  const d = new Date(e.date + 'T00:00:00');
+  const ds = d.toLocaleDateString('de-DE', {weekday:'short', day:'numeric', month:'short'});
+  return `<div class="entry-item">
+    <span class="entry-dot" style="background:${p?.color||'#999'}"></span>
+    <div class="entry-info">
+      <div class="entry-meta">
+        <span style="color:${p?.color||'var(--text3)'}">${p?.name||'—'}</span>
+        <span>${ds}</span>
+      </div>
+      <div class="entry-desc">${e.description || '<em style="color:var(--text3)">Keine Beschreibung</em>'}</div>
+    </div>
+    <span class="entry-hours">${e.hours.toFixed(1)}h</span>
+    <button class="btn ghost sm entry-del" onclick="confirmDelEntry('${e.id}')" title="Löschen"><i class="ti ti-trash" style="color:var(--danger)"></i></button>
+  </div>`;
+}
+
+window.saveEntry = async () => {
+  const date = document.getElementById('e-date').value;
+  const hours = parseFloat(document.getElementById('e-hours').value);
+  const projectId = document.getElementById('e-proj').value;
+  const description = document.getElementById('e-desc').value.trim();
+  if (!date || isNaN(hours) || hours <= 0 || !projectId) { alert('Bitte Datum, Stunden und Projekt angeben.'); return; }
+  await addEntry(date, hours, projectId, description);
+  document.getElementById('e-hours').value = '';
+  document.getElementById('e-desc').value = '';
+};
+
+window.confirmDelEntry = async (id) => {
+  if (confirm('Eintrag löschen?')) await delEntry(id);
+};
+
+// ── Week View (Variante A) ────────────────────────────
+function renderWeek(c) {
+  const today = new Date();
+  const ws = new Date(today);
+  const dow = today.getDay() || 7;
+  ws.setDate(today.getDate() - dow + 1 + state.weekOffset * 7);
+  const days = Array.from({length:7}, (_,i) => { const d = new Date(ws); d.setDate(ws.getDate()+i); return d; });
+  const todayStr = today.toISOString().slice(0,10);
+  const weekEnts = data.entries.filter(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    return d >= days[0] && d <= days[6];
+  });
+  const weekH = weekEnts.reduce((s,e)=>s+e.hours,0);
+  const workDays = days.filter((_,i)=>i<5).filter(d=>weekEnts.some(e=>e.date===d.toISOString().slice(0,10))).length;
+  const period = days[0].toLocaleDateString('de-DE',{day:'numeric',month:'short'}) + ' \u2013 ' + days[6].toLocaleDateString('de-DE',{day:'numeric',month:'short',year:'numeric'});
+  const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  if (!state.selectedDay) state.selectedDay = todayStr;
+  const selDay = state.selectedDay;
+
+  // Build unique project list for legend
+  const weekProjIds = [...new Set(weekEnts.map(e=>e.projectId))];
+
+  c.innerHTML = `
+    <style>
+      .wk-shell { display: flex; gap: 1rem; }
+      .wk-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+      .wk-right { width: 220px; flex-shrink: 0; }
+      .wk-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+      .wk-stat { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; }
+      .wk-stat-label { font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: .05em; font-weight: 500; margin-bottom: 3px; }
+      .wk-stat-val { font-size: 20px; font-weight: 500; }
+      .wk-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
+      .wk-tile { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 8px 4px 6px; text-align: center; cursor: pointer; transition: border-color .15s; }
+      .wk-tile:hover { border-color: var(--color-border-secondary); }
+      .wk-tile.sel { border: 1.5px solid #185FA5; background: #E6F1FB; }
+      .wk-tile.empty { opacity: .45; cursor: default; }
+      .wk-tile-name { font-size: 9px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
+      .wk-tile.sel .wk-tile-name { color: #185FA5; }
+      .wk-tile-num { font-size: 16px; font-weight: 500; margin: 2px 0; }
+      .wk-tile.sel .wk-tile-num { color: #185FA5; }
+      .wk-tile-num.today { color: #185FA5; }
+      .wk-tile.sel .wk-tile-num.today { color: #185FA5; }
+      .wk-tile-bar { height: 3px; border-radius: 2px; margin: 0 5px 4px; overflow: hidden; display: flex; }
+      .wk-tile-h { font-size: 10px; font-weight: 500; color: var(--color-text-secondary); }
+      .wk-tile.sel .wk-tile-h { color: #185FA5; }
+      .wk-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+      .wk-leg-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-text-secondary); }
+      .wk-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+      .wk-panel { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+      .wk-panel-head { padding: 10px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: space-between; }
+      .wk-panel-date { font-size: 12px; font-weight: 500; }
+      .wk-panel-total { font-size: 13px; font-weight: 500; }
+      .wk-panel-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+      .wk-panel-empty { color: var(--color-text-tertiary); font-size: 12px; padding: 6px 4px; }
+      .wk-entry { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 8px 10px; }
+      .wk-entry-top { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+      .wk-entry-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+      .wk-entry-proj { font-size: 11px; font-weight: 500; flex: 1; }
+      .wk-entry-h { font-size: 12px; font-weight: 500; }
+      .wk-entry-desc { font-size: 11px; color: var(--color-text-secondary); padding-left: 13px; line-height: 1.4; }
+      .wk-panel-foot { padding: 8px 12px; border-top: 0.5px solid var(--color-border-tertiary); }
+      .wk-add-btn { background: #185FA5; color: #fff; border: none; border-radius: var(--border-radius-md); padding: 7px 10px; font-size: 12px; font-weight: 500; width: 100%; cursor: pointer; font-family: var(--font-sans); display: flex; align-items: center; justify-content: center; gap: 5px; }
+      .wk-add-btn:hover { opacity: .88; }
+      @media(max-width:600px){ .wk-shell{flex-direction:column} .wk-right{width:100%} }
+    </style>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:7px">
+        <button class="btn sm" onclick="state.weekOffset--;state.selectedDay=null;render()"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:13px;font-weight:500">${period}</span>
+        <button class="btn sm" onclick="state.weekOffset++;state.selectedDay=null;render()" ${state.weekOffset>=0?'disabled style="opacity:.4"':''}><i class="ti ti-chevron-right"></i></button>
+        ${state.weekOffset!==0?'<button class="btn sm" onclick="state.weekOffset=0;state.selectedDay=null;render()">Heute</button>':''}
+      </div>
+      <div style="background:var(--color-background-secondary);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;color:var(--color-text-secondary)">${weekH.toFixed(1)}h diese Woche</div>
+    </div>
+
+    <div class="wk-shell">
+      <div class="wk-left">
+
+        <div class="wk-stats">
+          <div class="wk-stat">
+            <div class="wk-stat-label">Gesamt</div>
+            <div class="wk-stat-val">${weekH.toFixed(1)}h</div>
+          </div>
+          <div class="wk-stat">
+            <div class="wk-stat-label">Ø pro Tag</div>
+            <div class="wk-stat-val">${workDays ? (weekH/workDays).toFixed(1) : '0'}h</div>
+          </div>
+          <div class="wk-stat">
+            <div class="wk-stat-label">Arbeitstage</div>
+            <div class="wk-stat-val">${workDays}</div>
+          </div>
+        </div>
+
+        <div class="wk-grid" id="wk-grid"></div>
+
+        ${weekProjIds.length ? `<div class="wk-legend" id="wk-legend"></div>` : ''}
+      </div>
+
+      <div class="wk-right">
+        <div class="wk-panel" id="wk-panel"></div>
+      </div>
+    </div>
+  `;
+
+  // Build tiles
+  const grid = c.querySelector('#wk-grid');
+  days.forEach((day, i) => {
+    const ds = day.toISOString().slice(0,10);
+    const de = weekEnts.filter(e=>e.date===ds);
+    const dt = de.reduce((s,e)=>s+e.hours,0);
+    const isToday = ds === todayStr;
+    const isSel = ds === selDay;
+    const isWknd = i >= 5;
+    const isEmpty = dt === 0;
+
+    // Build color bar segments
+    const byP = {};
+    de.forEach(e => byP[e.projectId]=(byP[e.projectId]||0)+e.hours);
+    const barSegs = Object.entries(byP).map(([pid, h], si) => {
+      const p = getProject(pid);
+      const pct = Math.round(h/dt*100);
+      const delay = (i * 0.06 + si * 0.05).toFixed(2);
+      return `<div style="width:${pct}%;background:${p?.color||'#999'};animation:barSlide .65s ${delay}s ease both"></div>`;
+    }).join('');
+
+    const tile = document.createElement('div');
+    tile.className = 'wk-tile' + (isSel?' sel':'') + ((isWknd && isEmpty)?' empty':'');
+    if (!(isWknd && isEmpty)) tile.onclick = () => { state.selectedDay=ds; render(); };
+    tile.innerHTML =
+      `<div class="wk-tile-name">${dayNames[i]}</div>` +
+      `<div class="wk-tile-num${isToday?' today':''}">${day.getDate()}</div>` +
+      `<div class="wk-tile-bar">${isEmpty ? `<div style="width:100%;background:var(--color-border-tertiary)"></div>` : barSegs}</div>` +
+      `<div class="wk-tile-h">${dt>0 ? dt.toFixed(1)+'h' : '\u2014'}</div>`;
+    grid.appendChild(tile);
+  });
+
+  // Legend
+  const legendEl = c.querySelector('#wk-legend');
+  if (legendEl) {
+    legendEl.innerHTML = weekProjIds.map(pid => {
+      const p = getProject(pid);
+      const h = weekEnts.filter(e=>e.projectId===pid).reduce((s,e)=>s+e.hours,0);
+      return `<div class="wk-leg-item"><span class="wk-leg-dot" style="background:${p?.color||'#999'}"></span>${p?.name||'?'} · <strong>${h.toFixed(1)}h</strong></div>`;
+    }).join('');
+  }
+
+  // Detail panel
+  const panel = c.querySelector('#wk-panel');
+  const selEnts = weekEnts.filter(e=>e.date===selDay).sort((a,b)=>b.hours-a.hours);
+  const selTotal = selEnts.reduce((s,e)=>s+e.hours,0);
+  const selDate = new Date(selDay+'T00:00:00');
+  const selLabel = selDate.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
+
+  const entriesHTML = selEnts.length === 0
+    ? `<div class="wk-panel-empty">Keine Eintr\u00e4ge an diesem Tag.</div>`
+    : selEnts.map(e => {
+        const p = getProject(e.projectId);
+        return `<div class="wk-entry">
+          <div class="wk-entry-top">
+            <span class="wk-entry-dot" style="background:${p?.color||'#999'}"></span>
+            <span class="wk-entry-proj" style="color:${p?.color||'#999'}">${p?.name||'Unbekannt'}</span>
+            <span class="wk-entry-h">${e.hours.toFixed(1)}h</span>
+          </div>
+          <div class="wk-entry-desc">${e.description||'<span style="font-style:italic;color:var(--color-text-tertiary)">Keine Beschreibung</span>'}</div>
+        </div>`;
+      }).join('');
+
+  panel.innerHTML = `
+    <div class="wk-panel-head">
+      <span class="wk-panel-date">${selLabel}</span>
+      ${selTotal > 0 ? `<span class="wk-panel-total">${selTotal.toFixed(1)}h</span>` : ''}
+    </div>
+    <div class="wk-panel-body">${entriesHTML}</div>
+    <div class="wk-panel-foot">
+      <button class="wk-add-btn" onclick="goToLogForDay('${selDay}')">
+        <i class="ti ti-plus" aria-hidden="true"></i> Eintrag erfassen
+      </button>
+    </div>
+  `;
+}
+
+window.goToLogForDay = function(dateStr) {
+  showView('log');
+  setTimeout(() => {
+    const el = document.getElementById('e-date');
+    if (el) el.value = dateStr;
+  }, 50);
+};
+// ── Month View ─────────────────────────────────────────
+function renderMonth(c) {
+  const { month, year } = state;
+  const mn = new Date(year, month).toLocaleDateString('de-DE', {month:'long', year:'numeric'});
+  const me = data.entries.filter(e => { const d=new Date(e.date+'T00:00:00'); return d.getMonth()===month && d.getFullYear()===year; });
+  const mh = me.reduce((s,e)=>s+e.hours,0);
+  const days = new Set(me.map(e=>e.date)).size;
+  const byP = {};
+  data.projects.forEach(p=>byP[p.id]=0);
+  me.forEach(e=>byP[e.projectId]=(byP[e.projectId]||0)+e.hours);
+  const active = data.projects.filter(p=>byP[p.id]>0);
+  const now = new Date();
+  const canNext = year < now.getFullYear() || (year===now.getFullYear() && month < now.getMonth());
+
+  c.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn sm" onclick="state.month--;if(state.month<0){state.month=11;state.year--;}render()"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:13px;font-weight:500">${mn}</span>
+        <button class="btn sm" onclick="state.month++;if(state.month>11){state.month=0;state.year++;}render()" ${!canNext?'disabled style="opacity:.4"':''}><i class="ti ti-chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Gesamt</div><div class="metric-value">${mh.toFixed(1)}h</div><div class="metric-sub">${me.length} Einträge</div></div>
+      <div class="metric"><div class="metric-label">Ø pro Tag</div><div class="metric-value">${days?(mh/days).toFixed(1):'0'}h</div><div class="metric-sub">${days} Arbeitstage</div></div>
+      <div class="metric"><div class="metric-label">Projekte</div><div class="metric-value">${active.length}</div><div class="metric-sub">aktiv diesen Monat</div></div>
+    </div>
+    ${active.length ? `<div class="card"><div class="card-title">Stunden nach Projekt</div><div style="position:relative;height:${Math.max(160,active.length*52)}px"><canvas id="mc" role="img" aria-label="Projektübersicht ${mn}">Stunden nach Projekt für ${mn}</canvas></div></div>` : ''}
+    <div class="card">
+      <div class="card-title">Detailübersicht</div>
+      <table><thead><tr><th>Projekt</th><th>Stunden</th><th>Anteil</th><th>Einträge</th></tr></thead><tbody>
+        ${active.map(p=>{const h=byP[p.id];const cnt=me.filter(e=>e.projectId===p.id).length;return`<tr><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:${p.color}"></span>${p.name}</span></td><td style="font-family:var(--mono)">${h.toFixed(1)}</td><td style="font-family:var(--mono)">${mh?Math.round(h/mh*100):0}%</td><td>${cnt}</td></tr>`;}).join('')}
+      </tbody></table>
+    </div>
+    <div id="compare-wrap"></div>`;
+
+  if (active.length) {
+    new Chart(document.getElementById('mc'), {
+      type: 'bar',
+      data: { labels: active.map(p=>p.name), datasets: [{ data: active.map(p=>byP[p.id]), backgroundColor: active.map(p=>p.color+'cc'), borderColor: active.map(p=>p.color), borderWidth: 1, borderRadius: 5 }] },
+      options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales: { x:{grid:{color:'rgba(128,128,128,0.08)'},ticks:{callback:v=>v+'h'}}, y:{grid:{display:false}} } }
+    });
+  }
+  renderCompare(c.querySelector('#compare-wrap'));
+}
+
+function renderCompare(wrap) {
+  const now = new Date();
+  const months = Array.from({length:6},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-5+i);
+    return {year:d.getFullYear(), month:d.getMonth()};
+  });
+  const mdata = months.map(({year,month})=>{
+    const ents = data.entries.filter(e=>{const d=new Date(e.date+'T00:00:00');return d.getFullYear()===year&&d.getMonth()===month;});
+    return {
+      label: new Date(year,month).toLocaleDateString('de-DE',{month:'short',year:'2-digit'}),
+      total: ents.reduce((s,e)=>s+e.hours,0),
+      byP: data.projects.reduce((acc,p)=>{acc[p.id]=ents.filter(e=>e.projectId===p.id).reduce((s,e)=>s+e.hours,0);return acc;},{})
+    };
+  });
+
+  wrap.innerHTML = `<div class="card" style="margin-top:0">
+    <div class="card-title">6-Monats-Vergleich</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;font-size:11px;color:var(--text3)">
+      ${data.projects.map(p=>`<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:${p.color}"></span>${p.name}</span>`).join('')}
+    </div>
+    <div style="position:relative;height:200px"><canvas id="cc" role="img" aria-label="6-Monats-Vergleich">Monatsvergleich letzte 6 Monate</canvas></div>
+  </div>`;
+
+  new Chart(document.getElementById('cc'), {
+    type: 'bar',
+    data: {
+      labels: mdata.map(m=>m.label),
+      datasets: data.projects.map(p=>({
+        label: p.name, data: mdata.map(m=>m.byP[p.id]||0),
+        backgroundColor: p.color+'cc', borderColor: p.color, borderWidth:1, borderRadius:3
+      }))
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales: { x:{stacked:true,grid:{display:false},ticks:{autoSkip:false}}, y:{stacked:true,grid:{color:'rgba(128,128,128,0.08)'},ticks:{callback:v=>v+'h'}} } }
+  });
+}
+
+// ── Projects View ──────────────────────────────────────
+function renderProjects(c) {
+  if (!data.projects.length) {
+    c.innerHTML = `<div class="empty"><i class="ti ti-folder-open"></i><p>Noch keine Projekte. Leg jetzt los!</p><br><button class="btn primary" onclick="openNewProjectModal()"><i class="ti ti-plus"></i> Erstes Projekt anlegen</button></div>`;
+    return;
+  }
+  c.innerHTML = `<div id="proj-cards"></div>`;
+  const pc = c.querySelector('#proj-cards');
+  data.projects.forEach(p => {
+    const th = totalH(p.id);
+    const tmh = thisMonthH(p.id);
+    const pct = p.budget > 0 ? Math.min(th/p.budget*100,100) : 0;
+    const bcol = pct>85?'var(--danger)':pct>60?'var(--warning)':p.color;
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.marginBottom = '10px';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${p.budget>0?'10px':'0'}">
+        <span style="width:12px;height:12px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
+        <span style="font-size:15px;font-weight:500;flex:1">${p.name}</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:${p.active!==false?'var(--success-light)':'var(--surface2)'};color:${p.active!==false?'var(--success)':'var(--text3)'}">${p.active!==false?'Aktiv':'Pausiert'}</span>
+        <button class="btn sm" onclick="openEditModal('${p.id}')"><i class="ti ti-edit"></i> Bearbeiten</button>
+      </div>
+      ${p.budget>0?`
+        <div class="budget-bar"><div class="budget-fill" style="width:${pct.toFixed(1)}%;background:${bcol}"></div></div>
+        <div class="budget-info"><span>${th.toFixed(1)}h verbraucht</span><span style="color:${bcol};font-weight:500">${Math.round(pct)}% von ${p.budget}h</span><span>${Math.max(0,p.budget-th).toFixed(1)}h offen</span></div>
+      `:''}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
+        <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">Gesamt</div><div style="font-size:18px;font-weight:300;font-family:var(--mono)">${th.toFixed(1)}h</div></div>
+        <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">Diesen Monat</div><div style="font-size:18px;font-weight:300;font-family:var(--mono)">${tmh.toFixed(1)}h</div></div>
+        <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">Einträge</div><div style="font-size:18px;font-weight:300;font-family:var(--mono)">${data.entries.filter(e=>e.projectId===p.id).length}</div></div>
+      </div>
+      <div style="margin-top:12px"><button class="btn sm ghost" onclick="setView('project_detail',{selectedProject:'${p.id}'})"><i class="ti ti-chart-line"></i> Projektdetail ansehen</button></div>`;
+    pc.appendChild(div);
+  });
+}
+
+// ── Project Detail View ────────────────────────────────
+function renderProjectDetail(c) {
+  const p = getProject(state.selectedProject);
+  if (!p) { c.innerHTML='<div class="empty"><i class="ti ti-folder-off"></i><p>Projekt nicht gefunden</p></div>'; return; }
+  const ents = data.entries.filter(e=>e.projectId===p.id).sort((a,b)=>b.date.localeCompare(a.date));
+  const th = ents.reduce((s,e)=>s+e.hours,0);
+  const pct = p.budget>0?Math.min(th/p.budget*100,100):0;
+  const bcol = pct>85?'var(--danger)':pct>60?'var(--warning)':p.color;
+  const byMonth = {};
+  ents.forEach(e=>{const d=new Date(e.date+'T00:00:00');const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;byMonth[k]=(byMonth[k]||0)+e.hours;});
+  const sortedM = Object.keys(byMonth).sort();
+
+  c.innerHTML = `
+    <button class="btn ghost sm" style="margin-bottom:1rem" onclick="setView('projects')"><i class="ti ti-arrow-left"></i> Alle Projekte</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
+      <span style="width:13px;height:13px;border-radius:50%;background:${p.color}"></span>
+      <span style="font-size:17px;font-weight:500">${p.name}</span>
+      <button class="btn sm" onclick="openEditModal('${p.id}')"><i class="ti ti-edit"></i></button>
+    </div>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Gesamt</div><div class="metric-value">${th.toFixed(1)}h</div></div>
+      ${p.budget>0?`<div class="metric"><div class="metric-label">Budget</div><div class="metric-value" style="color:${bcol}">${Math.round(pct)}%</div><div class="metric-sub">${Math.max(0,p.budget-th).toFixed(1)}h verbleibend</div></div>
+      <div class="metric"><div class="metric-label">Budget gesamt</div><div class="metric-value">${p.budget}h</div></div>`
+      :`<div class="metric"><div class="metric-label">Einträge</div><div class="metric-value">${ents.length}</div></div>`}
+      <div class="metric"><div class="metric-label">Diesen Monat</div><div class="metric-value">${thisMonthH(p.id).toFixed(1)}h</div></div>
+    </div>
+    ${p.budget>0?`<div class="card"><div class="card-title">Budgetstatus</div>
+      <div class="budget-ring-wrap">
+        <div style="position:relative;width:100px;height:100px;flex-shrink:0">
+          <svg width="100" height="100" viewBox="0 0 100 100" style="transform:rotate(-90deg)" class="budget-ring-svg" role="img" aria-label="Budget ${Math.round(pct)}% verbraucht">
+            <circle cx="50" cy="50" r="40" fill="none" stroke="var(--surface2)" stroke-width="8"/>
+            <circle id="budget-ring-arc" cx="50" cy="50" r="40" fill="none" stroke="${bcol}" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"
+              class="budget-ring-fill"/>
+          </svg>
+          <div class="budget-ring-label">
+            <span class="budget-ring-pct" id="budget-ring-pct" style="color:${bcol}">0%</span>
+            <span class="budget-ring-sub">Budget</span>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500;margin-bottom:5px">${th.toFixed(1)}h von ${p.budget}h</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${Math.max(0,p.budget-th).toFixed(1)}h noch verfügbar</div>
+          <div class="budget-bar" style="height:6px"><div class="budget-fill" style="width:0%;background:${bcol}" id="budget-bar-fill"></div></div>
+          <div class="budget-info" style="margin-top:5px">
+            <span>${Math.round(pct)}% verbraucht</span>
+            <span style="color:${bcol};font-weight:500">${pct>85?"⚠ Fast aufgebraucht":pct>60?"Auf Kurs":"Im grünen Bereich"}</span>
+          </div>
+        </div>
+      </div>
+    </div>`:''}
+    ${sortedM.length?`<div class="card"><div class="card-title">Stunden pro Monat</div><div style="position:relative;height:${Math.max(120,sortedM.length*44)}px"><canvas id="pmc" role="img" aria-label="Monatliche Stunden ${p.name}">Monatliche Stunden für ${p.name}</canvas></div></div>`:''}
+    <div class="card"><div class="card-title">Alle Einträge</div>
+      ${ents.length?`<div class="entry-list">${ents.slice(0,50).map(entryHTML).join('')}</div>`:`<div class="empty" style="padding:1rem"><i class="ti ti-clock"></i><p>Noch keine Einträge</p></div>`}
+    </div>`;
+
+  if (sortedM.length) {
+    new Chart(document.getElementById('pmc'), {
+      type: 'bar',
+      data: { labels: sortedM.map(m=>{const[y,mo]=m.split('-');return new Date(y,mo-1).toLocaleDateString('de-DE',{month:'short',year:'2-digit'});}),
+        datasets:[{data:sortedM.map(m=>byMonth[m]),backgroundColor:p.color+'cc',borderColor:p.color,borderWidth:1,borderRadius:4}] },
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{grid:{color:'rgba(128,128,128,0.08)'},ticks:{callback:v=>v+'h'}},y:{grid:{display:false},ticks:{autoSkip:false}}}}
+    });
+  }
+
+  // Animate budget ring
+  if (p.budget > 0) {
+    const arc = document.getElementById('budget-ring-arc');
+    const pctEl = document.getElementById('budget-ring-pct');
+    const barFill = document.getElementById('budget-bar-fill');
+    const circumference = 251.2;
+    const targetPct = Math.min(pct, 100);
+    const targetOffset = circumference - (targetPct / 100 * circumference);
+    if (arc) {
+      requestAnimationFrame(() => {
+        arc.style.strokeDashoffset = targetOffset;
+        if (barFill) setTimeout(() => { barFill.style.width = targetPct.toFixed(1) + '%'; }, 50);
+        let v = 0;
+        const step = () => {
+          v = Math.min(v + Math.max(1, targetPct / 50), targetPct);
+          if (pctEl) pctEl.textContent = Math.round(v) + '%';
+          if (v < targetPct) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }
+  }
+}
+
+// ── Import / Export ────────────────────────────────────
+function renderImport(c) {
+  c.innerHTML = `
+    <div class="card">
+      <div class="card-title">CSV importieren (aus Numbers)</div>
+      <div class="alert warning"><i class="ti ti-info-circle"></i> Numbers → Ablage → Exportieren → CSV. Spalten: <code>datum, stunden, projekt, beschreibung</code></div>
+      <label class="upload-zone" for="csv-up"><i class="ti ti-upload"></i>CSV-Datei auswählen oder hierher ziehen</label>
+      <input type="file" id="csv-up" accept=".csv" style="display:none" onchange="handleCSV(event)">
+      <div id="import-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Exportieren</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Alle Einträge als CSV-Datei herunterladen</p>
+      <button class="btn primary" onclick="exportCSV()"><i class="ti ti-download"></i> CSV herunterladen</button>
+    </div>`;
+}
+
+window.handleCSV = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msg = document.getElementById('import-msg');
+  msg.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0">Wird verarbeitet…</div>';
+
+  // Auto-detect delimiter: try semicolon first, then comma
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const raw = ev.target.result;
+    const firstLine = raw.split(/\r?\n/)[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+
+    Papa.parse(raw, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: delimiter,
+      complete: async (res) => {
+        const rows = res.data;
+        if (!rows.length) { msg.innerHTML='<div class="alert danger">Keine Daten gefunden.</div>'; return; }
+
+        const keys = Object.keys(rows[0]).map(k=>k.toLowerCase().trim());
+        const fi = (opts) => { const i = keys.findIndex(k=>opts.some(o=>k.includes(o))); return i>=0?Object.keys(rows[0])[i]:null; };
+        const fDate = fi(['datum','date','day','tag']);
+        const fH    = fi(['stunden','hours','zeit','time','dauer','std']);
+        const fP    = fi(['projekt','project','kunde','client']);
+        const fD    = fi(['beschreibung','description','desc','notiz','notes','tätigk','tätigkeit','info']);
+
+        // Helper: parse hours — supports decimals (2.5), comma (2,5) and H:MM (2:30)
+        function parseHours(raw) {
+          if (!raw || !String(raw).trim()) return NaN;
+          const s = String(raw).trim();
+          // H:MM or HH:MM format
+          const hmMatch = s.match(/^(\d+):(\d{2})$/);
+          if (hmMatch) return parseInt(hmMatch[1]) + parseInt(hmMatch[2]) / 60;
+          // Decimal with comma
+          return parseFloat(s.replace(',', '.'));
+        }
+
+        // Helper: parse date — supports DD.MM.YYYY, D.M., D.M.YYYY
+        // For short dates like "1.12." we need to infer the year
+        function parseDate(raw, inferredYear) {
+          if (!raw || !String(raw).trim()) return null;
+          const s = String(raw).trim();
+          // Already ISO: YYYY-MM-DD
+          if (s.match(/^\d{4}-\d{2}-\d{2}$/)) return s;
+          // DD.MM.YYYY or D.M.YYYY
+          const fullMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+          if (fullMatch) {
+            const [,d,m,y] = fullMatch;
+            return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+          }
+          // D.MM. or DD.MM. (no year) — infer year
+          const shortMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.?$/);
+          if (shortMatch) {
+            const [,d,m] = shortMatch;
+            return `${inferredYear}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+          }
+          return null;
+        }
+
+        // Infer year from filename or use current year as fallback
+        // Try to detect from data: if months go Dec->Jan, it spans a year boundary
+        let lastMonth = -1, inferredYear = new Date().getFullYear();
+        const allDates = rows.map(r => fDate ? String(r[fDate]||'').trim() : '').filter(Boolean);
+        // Find first valid date to anchor year
+        for (const ds of allDates) {
+          const m = ds.match(/^(\d{1,2})\.(\d{1,2})/);
+          if (m) { lastMonth = parseInt(m[2]); break; }
+        }
+        // If first month is late in year (Oct-Dec), data likely started same year
+        // (Dec 2025 -> May 2026: start year = current year - 1 only if we're past June)
+        const now = new Date();
+        if (lastMonth >= 10) {
+          // Started in Oct-Dec: use previous calendar year as start
+          inferredYear = now.getFullYear() - 1;
+        } else {
+          inferredYear = now.getFullYear();
+        }
+
+        let imported=0, skipped=0;
+        let currentDate = null; // carry forward date when row has empty date
+        const ops = [];
+
+        for (const row of rows) {
+          const rawDate = fDate ? String(row[fDate]||'').trim() : '';
+          const rawH    = fH   ? String(row[fH]   ||'').trim() : '';
+          const rawP    = fP   ? String(row[fP]   ||'').trim() : '';
+
+          // Update current date if this row has one
+          if (rawDate) {
+            const m = rawDate.match(/^(\d{1,2})\.(\d{1,2})/);
+            if (m) {
+              const mo = parseInt(m[2]);
+              // Detect year rollover: if month jumps back (Dec -> Jan), advance year
+              if (lastMonth > 0 && mo < lastMonth && lastMonth >= 11) inferredYear++;
+              lastMonth = mo;
+            }
+            const parsed = parseDate(rawDate, inferredYear);
+            if (parsed) currentDate = parsed;
+          }
+
+          if (!currentDate || !rawH || !rawP) { skipped++; continue; }
+
+          const h = parseHours(rawH);
+          if (isNaN(h) || h <= 0) { skipped++; continue; }
+
+          const pn = rawP;
+          let proj = data.projects.find(p => p.name.toLowerCase() === pn.toLowerCase());
+          if (!proj) {
+            const newP = {name:pn, color:COLORS[data.projects.length%COLORS.length], budget:0, active:true, createdAt:serverTimestamp()};
+            const ref = await addDoc(projRef(), newP);
+            proj = {id:ref.id, ...newP};
+            data.projects.push(proj);
+          }
+
+          const desc = fD ? String(row[fD]||'').trim() : '';
+          ops.push(addDoc(entrRef(), {date:currentDate, hours:Math.round(h*100)/100, projectId:proj.id, description:desc, createdAt:serverTimestamp()}));
+          imported++;
+        }
+
+        await Promise.all(ops);
+        msg.innerHTML = `<div class="alert success"><i class="ti ti-check"></i> <strong>${imported} Einträge importiert</strong>, ${skipped} übersprungen.</div>`;
+      },
+      error: (err) => { msg.innerHTML=`<div class="alert danger">Fehler: ${err.message}</div>`; }
+    });
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+window.exportCSV = () => {
+  const rows = [['Datum','Stunden','Projekt','Beschreibung']];
+  data.entries.sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+    const p=getProject(e.projectId);
+    rows.push([e.date,e.hours,p?.name||'',e.description||'']);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`zeiterfassung_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+};
+
+// ── Modals ─────────────────────────────────────────────
+window.openNewProjectModal = () => {
+  showModal(`
+    <h3>Neues Projekt</h3>
+    <div class="form-group"><label class="form-label">Name</label><input type="text" id="mp-name" placeholder="z.B. E.ON Home, RLB OÖ …"></div>
+    <div class="form-group"><label class="form-label">Farbe</label><div class="color-grid">${COLORS.map((c,i)=>`<span class="color-swatch ${i===0?'active':''}" style="background:${c}" data-color="${c}" onclick="selColor(this)"></span>`).join('')}</div></div>
+    <div class="form-group"><label class="form-label">Stundenbudget (0 = kein Budget)</label><input type="number" id="mp-budget" min="0" step="1" value="0" placeholder="z.B. 40"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Abbrechen</button>
+      <button class="btn primary" onclick="saveNewProj()"><i class="ti ti-check"></i> Anlegen</button>
+    </div>`);
+};
+
+window.openEditModal = (id) => {
+  const p = getProject(id);
+  if (!p) return;
+  showModal(`
+    <h3>Projekt bearbeiten</h3>
+    <div class="form-group"><label class="form-label">Name</label><input type="text" id="ep-name" value="${p.name}"></div>
+    <div class="form-group"><label class="form-label">Farbe</label><div class="color-grid">${COLORS.map((c)=>`<span class="color-swatch ${c===p.color?'active':''}" style="background:${c}" data-color="${c}" onclick="selColor(this)"></span>`).join('')}</div></div>
+    <div class="form-group"><label class="form-label">Stundenbudget (0 = kein Budget)</label><input type="number" id="ep-budget" min="0" step="1" value="${p.budget||0}"></div>
+    <div class="form-group"><label class="form-label">Status</label><select id="ep-active"><option value="true" ${p.active!==false?'selected':''}>Aktiv</option><option value="false" ${p.active===false?'selected':''}>Pausiert</option></select></div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn danger" onclick="confirmDelProj('${id}')"><i class="ti ti-trash"></i> Löschen</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closeModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveEditProj('${id}')"><i class="ti ti-check"></i> Speichern</button>
+      </div>
+    </div>`);
+};
+
+window.selColor = (el) => { document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('active')); el.classList.add('active'); };
+window.getSelColor = () => document.querySelector('.color-swatch.active')?.dataset.color || COLORS[0];
+
+window.saveNewProj = async () => {
+  const name = document.getElementById('mp-name').value.trim();
+  if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+  await addProject(name, getSelColor(), parseInt(document.getElementById('mp-budget').value)||0);
+  closeModal();
+};
+
+window.saveEditProj = async (id) => {
+  await updateProject(id, {
+    name: document.getElementById('ep-name').value.trim(),
+    color: getSelColor(),
+    budget: parseInt(document.getElementById('ep-budget').value)||0,
+    active: document.getElementById('ep-active').value === 'true'
+  });
+  closeModal();
+};
+
+window.confirmDelProj = async (id) => {
+  if (!confirm('Projekt und alle Einträge löschen? Dies kann nicht rückgängig gemacht werden.')) return;
+  closeModal();
+  await deleteProject(id);
+  setView('projects');
+};
+
+function showModal(html) {
+  document.getElementById('modal-root').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;
+}
+window.closeModal = () => { document.getElementById('modal-root').innerHTML = ''; };
+
+</script>
+</body>
+</html>
